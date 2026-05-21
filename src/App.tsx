@@ -1,7 +1,7 @@
 import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, BookOpen, Box, ChevronDown, Search, Shield } from "lucide-react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
-import Select, { type MultiValue } from "react-select";
+import Select, { createFilter, type MultiValue } from "react-select";
 import { initialDataState, loadTabData } from "./data";
 import {
   filterCreatures,
@@ -28,14 +28,17 @@ const TABS: Array<{ id: TabId; label: string; icon: typeof BookOpen }> = [
   { id: "items", label: "Magic Items", icon: Box }
 ];
 
-const CORE_SOURCE_DEFAULTS = ["PH", "DMG", "MM"];
+const CORE_SOURCE_ORDER = ["PH", "DMG", "MM"];
+const SPELL_SOURCE_DEFAULTS = ["PH", "MM"];
+const MONSTER_SOURCE_DEFAULTS = ["MM"];
+const ITEM_SOURCE_DEFAULTS = ["DMG"];
 
 const INITIAL_SPELL_FILTERS: SpellFilters = {
   wizard: true,
   priest: true,
   search: "",
   level: "",
-  sources: CORE_SOURCE_DEFAULTS,
+  sources: SPELL_SOURCE_DEFAULTS,
   taxonomy: [],
   verbal: false,
   somatic: false,
@@ -45,7 +48,7 @@ const INITIAL_SPELL_FILTERS: SpellFilters = {
 const INITIAL_BROWSE_FILTERS: BrowseFilters = {
   search: "",
   primary: "",
-  sources: CORE_SOURCE_DEFAULTS,
+  sources: [],
   category: ""
 };
 
@@ -53,36 +56,36 @@ interface SelectOption {
   label: string;
   value: string;
   metadata?: {
-    author?: string;
-    year?: string;
-    countLabel?: string;
     selectedLabel?: string;
   };
 }
 
 const SOURCE_METADATA: Record<string, NonNullable<SelectOption["metadata"]> & { label: string }> = {
+  PH: {
+    label: "Player's Handbook",
+    selectedLabel: "PH"
+  },
+  DMG: {
+    label: "Dungeon Master's Guide",
+    selectedLabel: "DMG"
+  },
   MM: {
     label: "Monstrous Manual",
-    author: "Tim Beach",
-    year: "1995",
-    countLabel: "310 monsters",
     selectedLabel: "MM"
   }
 };
 
-const MONSTER_SOURCE_DEFAULTS = ["MM"];
-
 function sourceSortValue(value: string): [number, string] {
-  const coreIndex = CORE_SOURCE_DEFAULTS.indexOf(value);
-  return [coreIndex === -1 ? CORE_SOURCE_DEFAULTS.length : coreIndex, value];
+  const coreIndex = CORE_SOURCE_ORDER.indexOf(value);
+  return [coreIndex === -1 ? CORE_SOURCE_ORDER.length : coreIndex, value];
 }
 
 function sourceLabel(value: string): string {
   return SOURCE_METADATA[value]?.label || value;
 }
 
-function sourceOptionsForRecords(records: CompendiumRecord[], selectedSources: string[] = []): SelectOption[] {
-  return uniqueSorted([...selectedSources, ...records.flatMap((record) => record.sources)])
+function sourceOptionsForRecords(records: CompendiumRecord[]): SelectOption[] {
+  return uniqueSorted(records.flatMap((record) => record.sources))
     .sort((a, b) => {
       const [rankA, valueA] = sourceSortValue(a);
       const [rankB, valueB] = sourceSortValue(b);
@@ -101,26 +104,21 @@ function formatSourceOption(option: SelectOption, { context }: { context: "menu"
   if (context === "value") {
     return option.metadata?.selectedLabel || option.label;
   }
-  if (!option.metadata) {
-    return option.label;
-  }
-
-  const details = [
-    option.metadata.author ? `Author: ${option.metadata.author}` : "",
-    option.metadata.year ? `Year: ${option.metadata.year}` : "",
-    option.metadata.countLabel ? `Monster Count: ${option.metadata.countLabel.replace(/\s+monsters?$/i, "")}` : ""
-  ].filter(Boolean);
-  return (
-    <span className="source-option">
-      <span className="source-option__label">{option.label}</span>
-      <span className="source-option__meta">{details.join(" | ")}</span>
-    </span>
-  );
+  return option.label;
 }
+
+const sourceFilterOption = createFilter<SelectOption>({
+  stringify: (option) => `${option.label} ${option.value} ${option.data.metadata?.selectedLabel || ""}`
+});
 
 const INITIAL_CREATURE_FILTERS: BrowseFilters = {
   ...INITIAL_BROWSE_FILTERS,
   sources: MONSTER_SOURCE_DEFAULTS
+};
+
+const INITIAL_ITEM_FILTERS: BrowseFilters = {
+  ...INITIAL_BROWSE_FILTERS,
+  sources: ITEM_SOURCE_DEFAULTS
 };
 
 function spellLevelSortValue(level: string): [number, number | string] {
@@ -409,7 +407,7 @@ function SpellControls({
   const levels = useMemo(() => spellLevelOptions(levelRecords), [levelRecords]);
   const schools = useMemo(() => uniqueSorted(taxonomyRecords.flatMap((record) => record.schools)), [taxonomyRecords]);
   const spheres = useMemo(() => uniqueSorted(taxonomyRecords.flatMap((record) => record.spheres)), [taxonomyRecords]);
-  const sourceOptions = useMemo(() => sourceOptionsForRecords(sourceRecords, filters.sources), [filters.sources, sourceRecords]);
+  const sourceOptions = useMemo(() => sourceOptionsForRecords(sourceRecords), [sourceRecords]);
   const taxonomyOptions = useMemo(
     () => [
       {
@@ -430,14 +428,18 @@ function SpellControls({
   const selectedSources = useMemo(() => selectedOptions(sourceOptions, filters.sources), [filters.sources, sourceOptions]);
 
   useEffect(() => {
+    if (records.length === 0) return;
     const validLevels = new Set(levels);
+    const validSources = new Set(sourceOptions.map((option) => option.value));
     const validTaxonomy = new Set(taxonomyOptions.flatMap((group) => group.options.map((option) => option.value)));
     const taxonomy = filters.taxonomy.filter((value) => validTaxonomy.has(value));
     const level = filters.level && !validLevels.has(filters.level) ? "" : filters.level;
-    if (level !== filters.level || taxonomy.length !== filters.taxonomy.length) {
-      setFilters({ ...filters, level, taxonomy });
+    const sources =
+      sourceOptions.length > 0 ? filters.sources.filter((source) => validSources.has(source)) : filters.sources;
+    if (level !== filters.level || taxonomy.length !== filters.taxonomy.length || sources.length !== filters.sources.length) {
+      setFilters({ ...filters, level, sources, taxonomy });
     }
-  }, [filters, levels, setFilters, taxonomyOptions]);
+  }, [filters, levels, records.length, setFilters, sourceOptions, taxonomyOptions]);
 
   const update = (patch: Partial<SpellFilters>) => setFilters({ ...filters, ...patch });
   const updateClass = (key: "wizard" | "priest", checked: boolean) => {
@@ -534,6 +536,7 @@ function SpellControls({
           }
           options={sourceOptions}
           placeholder="All sources"
+          filterOption={sourceFilterOption}
           formatOptionLabel={formatSourceOption}
           value={selectedSources}
         />
@@ -594,13 +597,16 @@ function BrowseControls({
   useEffect(() => {
     const validPrimary = new Set(primaryOptions || []);
     const validCategories = new Set(categoryOptions || []);
+    const validSources = new Set(sourceOptions.map((option) => option.value));
     const primary = primaryOptions && filters.primary && !validPrimary.has(filters.primary) ? "" : filters.primary;
     const category =
       categoryOptions && filters.category && validCategories.has(filters.category) ? filters.category : "";
-    if (primary !== filters.primary || category !== filters.category) {
-      setFilters({ ...filters, primary, category });
+    const sources =
+      sourceOptions.length > 0 ? filters.sources.filter((source) => validSources.has(source)) : filters.sources;
+    if (primary !== filters.primary || category !== filters.category || sources.length !== filters.sources.length) {
+      setFilters({ ...filters, primary, category, sources });
     }
-  }, [categoryOptions, filters, primaryOptions, setFilters]);
+  }, [categoryOptions, filters, primaryOptions, setFilters, sourceOptions]);
 
   return (
     <form className="filter-bar browse-filter-bar" role="search">
@@ -635,6 +641,7 @@ function BrowseControls({
           }
           options={sourceOptions}
           placeholder="All sources"
+          filterOption={sourceFilterOption}
           formatOptionLabel={formatSourceOption}
           value={selectedSources}
         />
@@ -705,7 +712,7 @@ export default function App() {
   const [items, setItems] = useState<DataState<ItemRecord>>(initialDataState());
   const [spellFilters, setSpellFilters] = useState<SpellFilters>(INITIAL_SPELL_FILTERS);
   const [creatureFilters, setCreatureFilters] = useState<BrowseFilters>(INITIAL_CREATURE_FILTERS);
-  const [itemFilters, setItemFilters] = useState<BrowseFilters>(INITIAL_BROWSE_FILTERS);
+  const [itemFilters, setItemFilters] = useState<BrowseFilters>(INITIAL_ITEM_FILTERS);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const controlsRef = useRef<HTMLElement | null>(null);
   const scrollTopRef = useRef<HTMLButtonElement | null>(null);
@@ -790,8 +797,8 @@ export default function App() {
     [creatures.records, deferredCreatureFilters]
   );
   const creatureSources = useMemo(
-    () => sourceOptionsForRecords(creatureSourceRecords, creatureFilters.sources),
-    [creatureFilters.sources, creatureSourceRecords]
+    () => sourceOptionsForRecords(creatureSourceRecords),
+    [creatureSourceRecords]
   );
   const creatureCategories = useMemo(() => uniqueCategories(creatureCategoryRecords), [creatureCategoryRecords]);
 
@@ -808,8 +815,8 @@ export default function App() {
     [itemKindRecords]
   );
   const itemSources = useMemo(
-    () => sourceOptionsForRecords(itemSourceRecords, itemFilters.sources),
-    [itemFilters.sources, itemSourceRecords]
+    () => sourceOptionsForRecords(itemSourceRecords),
+    [itemSourceRecords]
   );
 
   const activeState = activeTab === "spells" ? spells : activeTab === "creatures" ? creatures : items;

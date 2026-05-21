@@ -71,6 +71,23 @@ const spells: SpellRecord[] = [
     bodyHtml: "<p>A sharp cold cantrip.</p>",
     bodyText: "a sharp cold cantrip",
     searchText: "chill wizard 1 evocation dragon magazine #229 a sharp cold cantrip"
+  },
+  {
+    id: "spell-5",
+    kind: "spell",
+    title: "Monster Charm (Wizard Spell)",
+    name: "Monster Charm",
+    spellClass: "Wizard",
+    level: "4",
+    schools: ["Enchantment"],
+    spheres: [],
+    components: { verbal: true, somatic: true, material: false },
+    fields: { Range: "60 yds.", Duration: "Special", Source: "Monstrous Manual" },
+    sources: ["MM"],
+    categories: ["Wizard Spells"],
+    bodyHtml: "<p>A charm drawn from a monster entry.</p>",
+    bodyText: "a charm drawn from a monster entry",
+    searchText: "monster charm wizard 4 enchantment monstrous manual a charm drawn from a monster entry"
   }
 ];
 
@@ -232,14 +249,21 @@ describe("App", () => {
     expect(screen.getByText("Acid Arrow")).toBeInTheDocument();
   });
 
-  it("defaults source filters to core books and can add another source", async () => {
+  it("shows full source option labels while keeping core source pills abbreviated", async () => {
     render(<App />);
     await screen.findByText("Magic Missile");
     expect(screen.queryByText("Chill")).not.toBeInTheDocument();
+    expect(screen.getByText("PH")).toBeInTheDocument();
+    expect(screen.getByText("MM")).toBeInTheDocument();
+    expect(screen.queryByText("DMG")).not.toBeInTheDocument();
 
     const sources = screen.getByLabelText("Spell sources");
     fireEvent.keyDown(sources, { key: "ArrowDown" });
-    fireEvent.click(within(await screen.findByRole("listbox")).getByText("Dragon Magazine #229"));
+    const listbox = await screen.findByRole("listbox");
+    expect(within(listbox).getByText("Player's Handbook")).toBeInTheDocument();
+    expect(within(listbox).getByText("Monstrous Manual")).toBeInTheDocument();
+    expect(within(listbox).queryByText("Dungeon Master's Guide")).not.toBeInTheDocument();
+    fireEvent.click(within(listbox).getByText("Dragon Magazine #229"));
     expect(await screen.findByText("Chill")).toBeInTheDocument();
   });
 
@@ -250,11 +274,37 @@ describe("App", () => {
     fireEvent.click(screen.getByText("Monsters"));
     expect(await screen.findByText("Aarakocra")).toBeInTheDocument();
     expect(screen.getByText("MM")).toBeInTheDocument();
-    expect(screen.getAllByText("Monstrous Manual").length).toBeGreaterThan(0);
     expect(screen.queryByText("Annual Beast")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Magic Items"));
     expect(await screen.findByText("Cloak Clasp of Holding")).toBeInTheDocument();
+    expect(screen.queryByText("Ring of Sparks")).not.toBeInTheDocument();
+    expect(screen.getByText("DMG")).toBeInTheDocument();
+    expect(screen.queryByText("PH")).not.toBeInTheDocument();
+    expect(screen.queryByText("MM")).not.toBeInTheDocument();
+  });
+
+  it("uses plain full labels in source menus without invalid defaults", async () => {
+    render(<App />);
+    await screen.findByText("Magic Missile");
+
+    fireEvent.click(screen.getByText("Monsters"));
+    await screen.findByText("Aarakocra");
+    const monsterSources = screen.getByLabelText("monsters sources");
+    fireEvent.keyDown(monsterSources, { key: "ArrowDown" });
+    let listbox = await screen.findByRole("listbox");
+    expect(within(listbox).getByText("Monstrous Manual")).toBeInTheDocument();
+    expect(within(listbox).queryByText(/Author:/)).not.toBeInTheDocument();
+    fireEvent.keyDown(monsterSources, { key: "Escape" });
+
+    fireEvent.click(screen.getByText("Magic Items"));
+    await screen.findByText("Cloak Clasp of Holding");
+    const itemSources = screen.getByLabelText("magic items sources");
+    fireEvent.keyDown(itemSources, { key: "ArrowDown" });
+    listbox = await screen.findByRole("listbox");
+    expect(within(listbox).getByText("Dungeon Master's Guide")).toBeInTheDocument();
+    expect(within(listbox).queryByText("Player's Handbook")).not.toBeInTheDocument();
+    expect(within(listbox).queryByText("Monstrous Manual")).not.toBeInTheDocument();
   });
 
   it("narrows browse filter options to the selected source", async () => {
