@@ -111,6 +111,13 @@ const sourceFilterOption = createFilter<SelectOption>({
   stringify: (option) => `${option.label} ${option.value} ${option.data.metadata?.selectedLabel || ""}`
 });
 
+interface AppUrlState {
+  activeTab: TabId;
+  spellFilters: SpellFilters;
+  creatureFilters: BrowseFilters;
+  itemFilters: BrowseFilters;
+}
+
 const INITIAL_CREATURE_FILTERS: BrowseFilters = {
   ...INITIAL_BROWSE_FILTERS,
   sources: MONSTER_SOURCE_DEFAULTS
@@ -120,6 +127,129 @@ const INITIAL_ITEM_FILTERS: BrowseFilters = {
   ...INITIAL_BROWSE_FILTERS,
   sources: ITEM_SOURCE_DEFAULTS
 };
+
+function cloneSpellFilters(filters: SpellFilters): SpellFilters {
+  return {
+    ...filters,
+    sources: [...filters.sources],
+    taxonomy: [...filters.taxonomy]
+  };
+}
+
+function cloneBrowseFilters(filters: BrowseFilters): BrowseFilters {
+  return {
+    ...filters,
+    sources: [...filters.sources]
+  };
+}
+
+function appUrlDefaults(): AppUrlState {
+  return {
+    activeTab: "spells",
+    spellFilters: cloneSpellFilters(INITIAL_SPELL_FILTERS),
+    creatureFilters: cloneBrowseFilters(INITIAL_CREATURE_FILTERS),
+    itemFilters: cloneBrowseFilters(INITIAL_ITEM_FILTERS)
+  };
+}
+
+function tabFromUrl(value: string | null): TabId {
+  if (value === "monsters" || value === "creatures") return "creatures";
+  if (value === "items" || value === "magic-items") return "items";
+  return "spells";
+}
+
+function tabToUrl(tab: TabId): string {
+  if (tab === "creatures") return "monsters";
+  if (tab === "items") return "items";
+  return "spells";
+}
+
+function sourcesFromParams(params: URLSearchParams, defaults: string[]): string[] {
+  if (params.get("allSources") === "1") return [];
+  const values = params.getAll("source");
+  return values.length > 0 ? values : [...defaults];
+}
+
+function appendSources(params: URLSearchParams, sources: string[]) {
+  if (sources.length === 0) {
+    params.set("allSources", "1");
+    return;
+  }
+  sources.forEach((source) => params.append("source", source));
+}
+
+function spellFiltersFromParams(params: URLSearchParams): SpellFilters {
+  const classFilter = params.get("class");
+  return {
+    ...cloneSpellFilters(INITIAL_SPELL_FILTERS),
+    wizard: classFilter !== "priest",
+    priest: classFilter !== "wizard",
+    search: params.get("q") || "",
+    level: params.get("level") || "",
+    sources: sourcesFromParams(params, SPELL_SOURCE_DEFAULTS),
+    taxonomy: params.getAll("tax"),
+    verbal: params.getAll("component").includes("V"),
+    somatic: params.getAll("component").includes("S"),
+    material: params.getAll("component").includes("M")
+  };
+}
+
+function browseFiltersFromParams(params: URLSearchParams, defaults: BrowseFilters, primaryKey?: string): BrowseFilters {
+  return {
+    ...cloneBrowseFilters(defaults),
+    search: params.get("q") || "",
+    primary: primaryKey ? params.get(primaryKey) || "" : "",
+    sources: sourcesFromParams(params, defaults.sources),
+    category: params.get("category") || ""
+  };
+}
+
+function appUrlStateFromLocation(): AppUrlState {
+  const params = new URLSearchParams(window.location.search);
+  const activeTab = tabFromUrl(params.get("tab"));
+  const state = appUrlDefaults();
+  state.activeTab = activeTab;
+  if (activeTab === "spells") {
+    state.spellFilters = spellFiltersFromParams(params);
+  } else if (activeTab === "creatures") {
+    state.creatureFilters = browseFiltersFromParams(params, INITIAL_CREATURE_FILTERS);
+  } else {
+    state.itemFilters = browseFiltersFromParams(params, INITIAL_ITEM_FILTERS, "kind");
+  }
+  return state;
+}
+
+function serializeSpellFilters(params: URLSearchParams, filters: SpellFilters) {
+  if (filters.search) params.set("q", filters.search);
+  if (filters.wizard && !filters.priest) params.set("class", "wizard");
+  if (filters.priest && !filters.wizard) params.set("class", "priest");
+  if (filters.level) params.set("level", filters.level);
+  appendSources(params, filters.sources);
+  filters.taxonomy.forEach((value) => params.append("tax", value));
+  if (filters.verbal) params.append("component", "V");
+  if (filters.somatic) params.append("component", "S");
+  if (filters.material) params.append("component", "M");
+}
+
+function serializeBrowseFilters(params: URLSearchParams, filters: BrowseFilters, primaryKey?: string) {
+  if (filters.search) params.set("q", filters.search);
+  appendSources(params, filters.sources);
+  if (primaryKey && filters.primary) params.set(primaryKey, filters.primary);
+  if (filters.category) params.set("category", filters.category);
+}
+
+function urlForState(activeTab: TabId, spellFilters: SpellFilters, creatureFilters: BrowseFilters, itemFilters: BrowseFilters) {
+  const params = new URLSearchParams();
+  params.set("tab", tabToUrl(activeTab));
+  if (activeTab === "spells") {
+    serializeSpellFilters(params, spellFilters);
+  } else if (activeTab === "creatures") {
+    serializeBrowseFilters(params, creatureFilters);
+  } else {
+    serializeBrowseFilters(params, itemFilters, "kind");
+  }
+  return `${window.location.pathname}?${params.toString()}`;
+}
 
 function spellLevelSortValue(level: string): [number, number | string] {
   const lowered = level.toLocaleLowerCase();
@@ -598,9 +728,14 @@ function BrowseControls({
     const validPrimary = new Set(primaryOptions || []);
     const validCategories = new Set(categoryOptions || []);
     const validSources = new Set(sourceOptions.map((option) => option.value));
-    const primary = primaryOptions && filters.primary && !validPrimary.has(filters.primary) ? "" : filters.primary;
+    const primary =
+      primaryOptions && primaryOptions.length > 0 && filters.primary && !validPrimary.has(filters.primary)
+        ? ""
+        : filters.primary;
     const category =
-      categoryOptions && filters.category && validCategories.has(filters.category) ? filters.category : "";
+      categoryOptions && categoryOptions.length > 0 && filters.category && !validCategories.has(filters.category)
+        ? ""
+        : filters.category;
     const sources =
       sourceOptions.length > 0 ? filters.sources.filter((source) => validSources.has(source)) : filters.sources;
     if (primary !== filters.primary || category !== filters.category || sources.length !== filters.sources.length) {
@@ -706,20 +841,53 @@ function StatusLine({
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<TabId>("spells");
+  const [initialUrlState] = useState(appUrlStateFromLocation);
+  const [activeTab, setActiveTab] = useState<TabId>(initialUrlState.activeTab);
   const [spells, setSpells] = useState<DataState<SpellRecord>>(initialDataState());
   const [creatures, setCreatures] = useState<DataState<CreatureRecord>>(initialDataState());
   const [items, setItems] = useState<DataState<ItemRecord>>(initialDataState());
-  const [spellFilters, setSpellFilters] = useState<SpellFilters>(INITIAL_SPELL_FILTERS);
-  const [creatureFilters, setCreatureFilters] = useState<BrowseFilters>(INITIAL_CREATURE_FILTERS);
-  const [itemFilters, setItemFilters] = useState<BrowseFilters>(INITIAL_ITEM_FILTERS);
+  const [spellFilters, setSpellFilters] = useState<SpellFilters>(initialUrlState.spellFilters);
+  const [creatureFilters, setCreatureFilters] = useState<BrowseFilters>(initialUrlState.creatureFilters);
+  const [itemFilters, setItemFilters] = useState<BrowseFilters>(initialUrlState.itemFilters);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const controlsRef = useRef<HTMLElement | null>(null);
   const scrollTopRef = useRef<HTMLButtonElement | null>(null);
+  const hasSyncedUrlRef = useRef(false);
 
   useEffect(() => {
     setExpandedId(null);
   }, [activeTab]);
+
+  useEffect(() => {
+    const applyCurrentUrl = () => {
+      const nextState = appUrlStateFromLocation();
+      setActiveTab(nextState.activeTab);
+      if (nextState.activeTab === "spells") {
+        setSpellFilters(nextState.spellFilters);
+      } else if (nextState.activeTab === "creatures") {
+        setCreatureFilters(nextState.creatureFilters);
+      } else {
+        setItemFilters(nextState.itemFilters);
+      }
+    };
+    window.addEventListener("popstate", applyCurrentUrl);
+    return () => window.removeEventListener("popstate", applyCurrentUrl);
+  }, []);
+
+  useEffect(() => {
+    const nextUrl = urlForState(activeTab, spellFilters, creatureFilters, itemFilters);
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+    if (!hasSyncedUrlRef.current) {
+      hasSyncedUrlRef.current = true;
+      if (currentUrl !== nextUrl) {
+        window.history.replaceState(null, "", nextUrl);
+      }
+      return;
+    }
+    if (currentUrl !== nextUrl) {
+      window.history.pushState(null, "", nextUrl);
+    }
+  }, [activeTab, creatureFilters, itemFilters, spellFilters]);
 
   useEffect(() => {
     const updateScrollTopVisibility = () => {

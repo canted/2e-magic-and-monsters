@@ -175,11 +175,13 @@ function mockFetch() {
 
 describe("App", () => {
   beforeEach(() => {
+    window.history.replaceState(null, "", "/2e-magic-and-monsters/");
     mockFetch();
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    window.history.replaceState(null, "", "/2e-magic-and-monsters/");
   });
 
   it("filters spells by class checkboxes", async () => {
@@ -318,5 +320,48 @@ describe("App", () => {
     expect(screen.getByRole("option", { name: "Worn Gear & Clothing" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Rings" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("magic items category")).not.toBeInTheDocument();
+  });
+
+  it("hydrates the active tab and current filters from the URL", async () => {
+    window.history.replaceState(null, "", "/2e-magic-and-monsters/?tab=items&allSources=1&q=sparks&kind=Rings");
+    render(<App />);
+
+    expect(await screen.findByText("Ring of Sparks")).toBeInTheDocument();
+    expect(screen.queryByText("Cloak Clasp of Holding")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Search magic items")).toHaveValue("sparks");
+    expect(screen.getByLabelText("magic items kind")).toHaveValue("Rings");
+    expect(screen.queryByText("DMG")).not.toBeInTheDocument();
+  });
+
+  it("writes active tab filters to the URL without other tab filters", async () => {
+    render(<App />);
+    await screen.findByText("Magic Missile");
+
+    fireEvent.change(screen.getByLabelText("Search spells"), { target: { value: "acid" } });
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get("q")).toBe("acid"));
+    expect(window.location.search).toContain("tab=spells");
+    expect(window.location.search).toContain("source=PH");
+
+    fireEvent.click(screen.getByText("Monsters"));
+    await screen.findByText("Aarakocra");
+    expect(window.location.search).toContain("tab=monsters");
+    expect(window.location.search).toContain("source=MM");
+    expect(new URLSearchParams(window.location.search).get("q")).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("monsters category"), { target: { value: "Creatures" } });
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get("category")).toBe("Creatures"));
+  });
+
+  it("restores a previous view from browser history popstate", async () => {
+    render(<App />);
+    await screen.findByText("Magic Missile");
+
+    window.history.pushState(null, "", "/2e-magic-and-monsters/?tab=items&allSources=1&q=sparks&kind=Rings");
+    fireEvent.popState(window);
+
+    expect(await screen.findByText("Ring of Sparks")).toBeInTheDocument();
+    expect(screen.queryByText("Magic Missile")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Search magic items")).toHaveValue("sparks");
+    expect(screen.getByLabelText("magic items kind")).toHaveValue("Rings");
   });
 });
