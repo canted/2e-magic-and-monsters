@@ -223,7 +223,7 @@ button {
 }
 
 .taxonomy-picker {
-  font-size: 0.95rem;
+  font-size: 1rem;
   max-width: 100%;
   min-width: 0;
 }
@@ -252,8 +252,14 @@ button {
 .taxonomy-picker .taxonomy-picker__placeholder,
 .taxonomy-picker .taxonomy-picker__input-container {
   color: var(--muted);
+  font-size: 16px;
   margin: 0;
   padding: 0;
+}
+
+.taxonomy-picker .taxonomy-picker__input,
+.taxonomy-picker input {
+  font-size: 16px !important;
 }
 
 .taxonomy-picker .taxonomy-picker__multi-value {
