@@ -14,6 +14,7 @@
   --accent-soft: #dcecf7;
   --accent-pale: #edf5fa;
   --paper-band: #e7eaed;
+  --control-height: 42px;
   --shadow: 0 14px 30px rgba(22, 50, 78, 0.12);
 }
 
@@ -138,13 +139,15 @@ button {
   border: 1px solid var(--control-border);
   border-radius: 7px;
   color: var(--ink);
-  min-height: 40px;
+  min-height: var(--control-height);
   min-width: 0;
   width: 100%;
 }
 
 .field input,
 .field select {
+  height: var(--control-height);
+  line-height: 1.2;
   max-width: 100%;
   padding: 0 10px;
   text-overflow: ellipsis;
@@ -164,7 +167,8 @@ button {
 
 .search-input input {
   border: 0;
-  min-height: 38px;
+  height: calc(var(--control-height) - 2px);
+  min-height: 0;
   outline: 0;
   padding: 0;
   width: 100%;
@@ -193,7 +197,7 @@ button {
   font-size: 0.9rem;
   font-weight: 700;
   gap: 7px;
-  min-height: 40px;
+  min-height: var(--control-height);
   padding: 0 10px;
 }
 
@@ -233,7 +237,8 @@ button {
   border-color: var(--control-border);
   border-radius: 7px;
   box-shadow: none;
-  min-height: 38px;
+  height: var(--control-height);
+  min-height: var(--control-height);
   min-width: 0;
 }
 
@@ -244,7 +249,9 @@ button {
 }
 
 .taxonomy-picker .taxonomy-picker__value-container {
+  flex-wrap: nowrap;
   gap: 2px;
+  overflow: hidden;
   padding: 2px 6px;
   min-width: 0;
 }
@@ -305,6 +312,10 @@ button {
 
 .taxonomy-picker .taxonomy-picker__indicator-separator {
   background: var(--line);
+}
+
+.taxonomy-picker .taxonomy-picker__indicators {
+  height: 100%;
 }
 
 .taxonomy-picker .taxonomy-picker__clear-indicator,
