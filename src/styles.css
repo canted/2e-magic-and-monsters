@@ -3,6 +3,7 @@
   font-family: var(--font-primary);
   font-optical-sizing: auto;
   --font-primary: "Spectral", Georgia, "Times New Roman", serif;
+  --font-ui: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --bg: #f2f4f5;
   --surface: #ffffff;
   --surface-strong: #ffffff;
@@ -103,6 +104,7 @@ button {
 
 .status-line {
   color: var(--muted);
+  font-family: var(--font-ui);
   font-size: 0.9rem;
   font-weight: 700;
   white-space: nowrap;
@@ -111,6 +113,7 @@ button {
 .controls-region {
   background: var(--paper-band);
   border-bottom: 1px solid var(--line);
+  font-family: var(--font-ui);
   max-width: 100vw;
   min-width: 0;
   padding: 14px clamp(18px, 4vw, 42px);
@@ -246,6 +249,7 @@ button {
 }
 
 .taxonomy-picker {
+  font-family: var(--font-ui);
   font-size: 1rem;
   max-width: 100%;
   min-width: 0;
@@ -464,6 +468,7 @@ button {
   border: 1px solid #b7d4e6;
   border-radius: 999px;
   color: var(--accent-strong);
+  font-family: var(--font-ui);
   font-size: 0.74rem;
   font-weight: 800;
   line-height: 1;
@@ -490,6 +495,7 @@ button {
 
 .detail-grid {
   display: grid;
+  font-family: var(--font-ui);
   gap: 10px;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   margin: 0 0 18px;
@@ -578,7 +584,7 @@ button {
 .wiki-table {
   border-collapse: separate;
   border-spacing: 0;
-  font-family: var(--font-primary);
+  font-family: var(--font-ui);
   font-size: 0.9rem;
   margin: 0;
   min-width: max-content;
@@ -653,6 +659,7 @@ button {
   border-top: 1px solid var(--line);
   color: var(--muted);
   display: grid;
+  font-family: var(--font-ui);
   gap: 8px;
   margin-top: 16px;
   padding-top: 12px;
