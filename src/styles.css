@@ -1,6 +1,6 @@
 :root {
   color-scheme: light;
-  font-family: var(--font-primary);
+  font-family: var(--font-ui);
   font-optical-sizing: auto;
   --font-primary: "Spectral", Georgia, "Times New Roman", serif;
   --font-ui: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -85,6 +85,7 @@ button {
   border-radius: 7px;
   cursor: pointer;
   display: inline-flex;
+  font-family: var(--font-primary);
   font-size: 0.95rem;
   font-weight: 800;
   gap: 8px;
@@ -446,6 +447,8 @@ button {
 }
 
 .result-title {
+  color: #0057aa;
+  font-family: var(--font-primary);
   font-size: 1.02rem;
   font-weight: 800;
   line-height: 1.25;
@@ -529,7 +532,6 @@ button {
 
 .wiki-body {
   color: #202327;
-  font-family: var(--font-primary);
   font-size: 1rem;
   line-height: 1.58;
 }
@@ -707,6 +709,7 @@ button {
 }
 
 .class-reference-header h1 {
+  font-family: var(--font-primary);
   font-size: clamp(1.35rem, 3vw, 2rem);
   font-weight: 800;
   line-height: 1.1;
