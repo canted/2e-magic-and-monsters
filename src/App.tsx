@@ -52,11 +52,31 @@ const INITIAL_BROWSE_FILTERS: BrowseFilters = {
 interface SelectOption {
   label: string;
   value: string;
+  metadata?: {
+    author?: string;
+    year?: string;
+    countLabel?: string;
+  };
 }
+
+const SOURCE_METADATA: Record<string, NonNullable<SelectOption["metadata"]> & { label: string }> = {
+  MM: {
+    label: "Monstrous Manual",
+    author: "Tim Beach",
+    year: "1995",
+    countLabel: "310 monsters"
+  }
+};
+
+const MONSTER_SOURCE_DEFAULTS = ["MM"];
 
 function sourceSortValue(value: string): [number, string] {
   const coreIndex = CORE_SOURCE_DEFAULTS.indexOf(value);
   return [coreIndex === -1 ? CORE_SOURCE_DEFAULTS.length : coreIndex, value];
+}
+
+function sourceLabel(value: string): string {
+  return SOURCE_METADATA[value]?.label || value;
 }
 
 function sourceOptionsForRecords(records: CompendiumRecord[], selectedSources: string[] = []): SelectOption[] {
@@ -67,13 +87,36 @@ function sourceOptionsForRecords(records: CompendiumRecord[], selectedSources: s
       if (rankA !== rankB) return rankA - rankB;
       return valueA.localeCompare(valueB, undefined, { numeric: true, sensitivity: "base" });
     })
-    .map((source) => ({ label: source, value: source }));
+    .map((source) => ({ label: sourceLabel(source), metadata: SOURCE_METADATA[source], value: source }));
 }
 
 function selectedOptions(options: SelectOption[], selectedValues: string[]): SelectOption[] {
   const selected = new Set(selectedValues);
   return options.filter((option) => selected.has(option.value));
 }
+
+function formatSourceOption(option: SelectOption, { context }: { context: "menu" | "value" }) {
+  if (!option.metadata || context === "value") {
+    return option.label;
+  }
+
+  const details = [
+    option.metadata.author ? `Author: ${option.metadata.author}` : "",
+    option.metadata.year ? `Year: ${option.metadata.year}` : "",
+    option.metadata.countLabel ? `Monster Count: ${option.metadata.countLabel.replace(/\s+monsters?$/i, "")}` : ""
+  ].filter(Boolean);
+  return (
+    <span className="source-option">
+      <span className="source-option__label">{option.label}</span>
+      <span className="source-option__meta">{details.join(" | ")}</span>
+    </span>
+  );
+}
+
+const INITIAL_CREATURE_FILTERS: BrowseFilters = {
+  ...INITIAL_BROWSE_FILTERS,
+  sources: MONSTER_SOURCE_DEFAULTS
+};
 
 function spellLevelSortValue(level: string): [number, number | string] {
   const lowered = level.toLocaleLowerCase();
@@ -443,6 +486,7 @@ function SpellControls({
           className="taxonomy-picker"
           classNamePrefix="taxonomy-picker"
           closeMenuOnSelect={false}
+          hideSelectedOptions={false}
           inputId="spell-source-select"
           isClearable
           isMulti
@@ -453,6 +497,7 @@ function SpellControls({
           }
           options={sourceOptions}
           placeholder="All sources"
+          formatOptionLabel={formatSourceOption}
           value={selectedSources}
         />
       </label>
@@ -542,6 +587,7 @@ function BrowseControls({
           className="taxonomy-picker"
           classNamePrefix="taxonomy-picker"
           closeMenuOnSelect={false}
+          hideSelectedOptions={false}
           inputId={sourceInputId}
           isClearable
           isMulti
@@ -552,6 +598,7 @@ function BrowseControls({
           }
           options={sourceOptions}
           placeholder="All sources"
+          formatOptionLabel={formatSourceOption}
           value={selectedSources}
         />
       </label>
@@ -620,7 +667,7 @@ export default function App() {
   const [creatures, setCreatures] = useState<DataState<CreatureRecord>>(initialDataState());
   const [items, setItems] = useState<DataState<ItemRecord>>(initialDataState());
   const [spellFilters, setSpellFilters] = useState<SpellFilters>(INITIAL_SPELL_FILTERS);
-  const [creatureFilters, setCreatureFilters] = useState<BrowseFilters>(INITIAL_BROWSE_FILTERS);
+  const [creatureFilters, setCreatureFilters] = useState<BrowseFilters>(INITIAL_CREATURE_FILTERS);
   const [itemFilters, setItemFilters] = useState<BrowseFilters>(INITIAL_BROWSE_FILTERS);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const controlsRef = useRef<HTMLElement | null>(null);

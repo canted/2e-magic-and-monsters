@@ -86,6 +86,18 @@ const creatures: CreatureRecord[] = [
     bodyHtml: "<p>Bird-men of high mountains.</p>",
     bodyText: "bird-men of high mountains",
     searchText: "aarakocra bird-men of high mountains creatures monstrous manual creatures"
+  },
+  {
+    id: "creature-2",
+    kind: "creature",
+    title: "Annual Beast (Creature)",
+    name: "Annual Beast",
+    fields: { Source: "Monstrous Compendium Annual Volume One", "Armor Class": "5", "Hit Dice": "3" },
+    sources: ["Monstrous Compendium Annual Volume One"],
+    categories: ["Creatures"],
+    bodyHtml: "<p>A beast from an annual appendix.</p>",
+    bodyText: "a beast from an annual appendix",
+    searchText: "annual beast monstrous compendium annual volume one"
   }
 ];
 
@@ -219,6 +231,8 @@ describe("App", () => {
 
     fireEvent.click(screen.getByText("Monsters"));
     expect(await screen.findByText("Aarakocra")).toBeInTheDocument();
+    expect(screen.getAllByText("Monstrous Manual").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Annual Beast")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Magic Items"));
     expect(await screen.findByText("Cloak Clasp of Holding")).toBeInTheDocument();
