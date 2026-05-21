@@ -208,9 +208,18 @@ button {
   margin: 0;
 }
 
+.checkbox-group.compact.components {
+  grid-auto-flow: column;
+  grid-template-columns: repeat(3, 44px);
+  justify-content: start;
+  justify-self: start;
+}
+
 .components label {
   justify-content: center;
-  min-width: 44px;
+  min-width: 0;
+  padding: 0;
+  width: 44px;
 }
 
 .taxonomy-picker {
@@ -659,8 +668,15 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .components {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .checkbox-group.compact.components {
+    grid-auto-flow: column;
+    grid-template-columns: repeat(3, 42px);
+    width: max-content;
+  }
+
+  .components label {
+    min-height: 38px;
+    width: 42px;
   }
 
   .result-summary {
