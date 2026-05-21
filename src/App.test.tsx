@@ -176,9 +176,13 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("Search spells"), { target: { value: "acid" } });
     await waitFor(() => expect(screen.getByText("Acid Arrow")).toBeInTheDocument());
     expect(screen.queryByText("Magic Missile")).not.toBeInTheDocument();
+    expect(screen.queryByText("VSM")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Acid Arrow"));
     expect(await screen.findByText("An arrow that burns with acid.")).toBeInTheDocument();
+    expect(screen.getByText("Expanded Details")).toBeInTheDocument();
+    expect(screen.getByText("School: Conjuration")).toBeInTheDocument();
+    expect(screen.getByText("VSM")).toBeInTheDocument();
   });
 
   it("filters by level, taxonomy, and material component", async () => {

@@ -114,13 +114,7 @@ function componentsLabel(spell: SpellRecord): string {
 function badgesFor(record: CompendiumRecord): string[] {
   const unique = (values: string[]) => Array.from(new Set(values.filter(Boolean)));
   if (record.kind === "spell") {
-    return unique([
-      record.level ? `L${record.level}` : "",
-      record.spellClass,
-      ...record.schools.slice(0, 2),
-      ...record.spheres.slice(0, 2),
-      componentsLabel(record)
-    ]);
+    return unique([record.level ? `L${record.level}` : "", record.spellClass]);
   }
   if (record.kind === "creature") {
     return unique([
@@ -130,6 +124,29 @@ function badgesFor(record: CompendiumRecord): string[] {
     ]);
   }
   return unique([...record.itemKinds.slice(0, 2), record.fields.XP, record.fields.Value]);
+}
+
+function SpellExpandedDetails({ spell }: { spell: SpellRecord }) {
+  const taxonomy = [
+    ...spell.schools.map((school) => `School: ${school}`),
+    ...spell.spheres.map((sphere) => `Sphere: ${sphere}`)
+  ];
+
+  return (
+    <section className="expanded-details" aria-label="Expanded spell details">
+      <h3>Expanded Details</h3>
+      <dl className="expanded-detail-grid">
+        <div className="detail-field">
+          <dt>Schools / Spheres</dt>
+          <dd>{taxonomy.join(", ") || "None"}</dd>
+        </div>
+        <div className="detail-field">
+          <dt>Components</dt>
+          <dd>{componentsLabel(spell) || "None"}</dd>
+        </div>
+      </dl>
+    </section>
+  );
 }
 
 function ResultDetail({ record }: { record: CompendiumRecord }) {
@@ -152,18 +169,6 @@ function ResultDetail({ record }: { record: CompendiumRecord }) {
               <dt>Level</dt>
               <dd>{record.level || "Unlisted"}</dd>
             </div>
-            <div className="detail-field">
-              <dt>Schools</dt>
-              <dd>{record.schools.join(", ") || "None"}</dd>
-            </div>
-            <div className="detail-field">
-              <dt>Spheres</dt>
-              <dd>{record.spheres.join(", ") || "None"}</dd>
-            </div>
-            <div className="detail-field">
-              <dt>Components</dt>
-              <dd>{componentsLabel(record) || "None"}</dd>
-            </div>
           </>
         ) : null}
         {record.categories.length > 0 ? (
@@ -173,6 +178,7 @@ function ResultDetail({ record }: { record: CompendiumRecord }) {
           </div>
         ) : null}
       </dl>
+      {record.kind === "spell" ? <SpellExpandedDetails spell={record} /> : null}
       <article className="wiki-body" dangerouslySetInnerHTML={{ __html: record.bodyHtml }} />
     </div>
   );

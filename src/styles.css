@@ -107,7 +107,7 @@ button {
   align-items: end;
   display: grid;
   gap: 12px;
-  grid-template-columns: auto minmax(240px, 1fr) minmax(105px, 140px) minmax(210px, 270px) minmax(180px, 240px) auto;
+  grid-template-columns: auto minmax(240px, 1fr) minmax(105px, 140px) minmax(210px, 270px) minmax(220px, 300px) auto;
   max-width: 100%;
   min-width: 0;
 }
@@ -233,7 +233,7 @@ button {
   border-color: var(--control-border);
   border-radius: 7px;
   box-shadow: none;
-  min-height: 40px;
+  min-height: 38px;
   min-width: 0;
 }
 
@@ -244,8 +244,8 @@ button {
 }
 
 .taxonomy-picker .taxonomy-picker__value-container {
-  gap: 3px;
-  padding: 3px 9px;
+  gap: 2px;
+  padding: 2px 6px;
   min-width: 0;
 }
 
@@ -266,24 +266,36 @@ button {
   background: var(--accent-soft);
   border: 1px solid #b7d4e6;
   border-radius: 999px;
+  margin: 1px;
   max-width: 100%;
   overflow: hidden;
 }
 
 .taxonomy-picker .taxonomy-picker__multi-value__label {
   color: var(--accent-strong);
-  font-size: 0.8rem;
+  font-size: 0.64rem;
   font-weight: 800;
-  max-width: 170px;
+  line-height: 1.05;
+  max-width: 112px;
   overflow: hidden;
-  padding: 4px 6px 4px 8px;
+  padding: 2px 2px 2px 5px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .taxonomy-picker .taxonomy-picker__multi-value__remove {
+  align-items: center;
   border-radius: 999px;
   color: var(--accent-strong);
+  display: flex;
+  justify-content: center;
+  padding: 0;
+  width: 14px;
+}
+
+.taxonomy-picker .taxonomy-picker__multi-value__remove svg {
+  height: 12px;
+  width: 12px;
 }
 
 .taxonomy-picker .taxonomy-picker__multi-value__remove:hover {
@@ -293,6 +305,17 @@ button {
 
 .taxonomy-picker .taxonomy-picker__indicator-separator {
   background: var(--line);
+}
+
+.taxonomy-picker .taxonomy-picker__clear-indicator,
+.taxonomy-picker .taxonomy-picker__dropdown-indicator {
+  padding: 4px;
+}
+
+.taxonomy-picker .taxonomy-picker__clear-indicator svg,
+.taxonomy-picker .taxonomy-picker__dropdown-indicator svg {
+  height: 17px;
+  width: 17px;
 }
 
 .taxonomy-picker .taxonomy-picker__menu {
@@ -463,6 +486,30 @@ button {
   line-height: 1.35;
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+.expanded-details {
+  background: var(--accent-pale);
+  border: 1px solid #c2d8e6;
+  border-radius: 7px;
+  margin: 0 0 18px;
+  padding: 12px;
+}
+
+.expanded-details h3 {
+  color: var(--accent-strong);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  margin: 0 0 10px;
+  text-transform: uppercase;
+}
+
+.expanded-detail-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 180px);
+  margin: 0;
 }
 
 .wiki-body {
