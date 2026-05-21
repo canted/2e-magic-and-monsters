@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import App from "./App";
-import type { CreatureRecord, ItemRecord, SpellRecord } from "./types";
+import type { ClassRecord, CreatureRecord, ItemRecord, SpellRecord } from "./types";
 
 const spells: SpellRecord[] = [
   {
@@ -155,6 +155,60 @@ const items: ItemRecord[] = [
   }
 ];
 
+const classes: ClassRecord[] = [
+  {
+    id: "class-fighter",
+    kind: "class",
+    title: "Fighter",
+    name: "Fighter",
+    className: "Fighter",
+    sourceTag: "PHB",
+    slug: "fighter",
+    fields: { Source: "Player's Handbook", Group: "Warrior" },
+    sources: ["PH"],
+    categories: ["Class", "PHB Class"],
+    progressionHtml:
+      '<div class="wiki-table-wrap"><table class="wiki-table"><caption>Fighter</caption><tr><th>Level</th><th>XP Needed</th><th>THAC0</th></tr><tr><td>1</td><td>0</td><td>20</td></tr></table></div>',
+    bodyHtml: "<p>The classical non-magical combatant.</p>",
+    bodyText: "the classical non-magical combatant",
+    searchText: "fighter warrior player handbook"
+  },
+  {
+    id: "class-bard",
+    kind: "class",
+    title: "Bard",
+    name: "Bard",
+    className: "Bard",
+    sourceTag: "PHB",
+    slug: "bard",
+    fields: { Source: "Player's Handbook", Group: "Rogue" },
+    sources: ["PH"],
+    categories: ["Class", "PHB Class"],
+    progressionHtml:
+      '<div class="wiki-table-wrap"><table class="wiki-table"><tr><th colspan="4">Bard</th><th colspan="6">Spell Slots per Spell Level</th></tr><tr><th>Level</th><th>XP needed</th><th>THAC0</th><th>1</th></tr><tr><td>2</td><td>1,250</td><td>20</td><td>1</td></tr></table></div>',
+    bodyHtml: "<p>Bards learn a little bit of everything.</p>",
+    bodyText: "bards learn a little bit of everything",
+    searchText: "bard rogue player handbook"
+  },
+  {
+    id: "class-chronomancer",
+    kind: "class",
+    title: "Chronomancer",
+    name: "Chronomancer",
+    className: "Chronomancer",
+    sourceTag: "DMG",
+    slug: "chronomancer",
+    fields: { Source: "Dungeon Master's Guide", Group: "Wizard" },
+    sources: ["DMG"],
+    categories: ["Class", "DMG Class"],
+    progressionHtml:
+      '<div class="wiki-table-wrap"><table class="wiki-table"><tr><th>Level</th><th>XP Needed</th></tr><tr><td>1</td><td>0</td></tr></table></div>',
+    bodyHtml: "<p>A wizard who studies time.</p>",
+    bodyText: "a wizard who studies time",
+    searchText: "chronomancer wizard dungeon master guide"
+  }
+];
+
 function mockFetch() {
   vi.stubGlobal(
     "fetch",
@@ -167,6 +221,9 @@ function mockFetch() {
       }
       if (url.endsWith("items.json")) {
         return Promise.resolve(new Response(JSON.stringify(items), { status: 200 }));
+      }
+      if (url.endsWith("classes.json")) {
+        return Promise.resolve(new Response(JSON.stringify(classes), { status: 200 }));
       }
       return Promise.resolve(new Response("[]", { status: 404 }));
     })
@@ -255,7 +312,7 @@ describe("App", () => {
     render(<App />);
     await screen.findByText("Magic Missile");
     expect(screen.queryByText("Chill")).not.toBeInTheDocument();
-    expect(screen.getByText("PH")).toBeInTheDocument();
+    expect(screen.getAllByText("PH").length).toBeGreaterThan(0);
     expect(screen.getByText("MM")).toBeInTheDocument();
     expect(screen.queryByText("DMG")).not.toBeInTheDocument();
 
@@ -284,6 +341,33 @@ describe("App", () => {
     expect(screen.getByText("DMG")).toBeInTheDocument();
     expect(screen.queryByText("PH")).not.toBeInTheDocument();
     expect(screen.queryByText("MM")).not.toBeInTheDocument();
+  });
+
+  it("shows class references with source and class selectors", async () => {
+    render(<App />);
+    await screen.findByText("Magic Missile");
+
+    fireEvent.click(screen.getByText("Classes"));
+    expect(await screen.findByRole("heading", { name: "Fighter" })).toBeInTheDocument();
+    expect(screen.getByText("XP Needed")).toBeInTheDocument();
+    expect(screen.getByText("The classical non-magical combatant.")).toBeInTheDocument();
+    expect(screen.getAllByText("PH").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("heading", { name: "Chronomancer" })).not.toBeInTheDocument();
+
+    const classSelect = screen.getByLabelText("Select class");
+    fireEvent.keyDown(classSelect, { key: "ArrowDown" });
+    fireEvent.click(within(await screen.findByRole("listbox")).getByText("Bard"));
+    expect(await screen.findByRole("heading", { name: "Bard" })).toBeInTheDocument();
+    expect(screen.getByText("Spell Slots per Spell Level")).toBeInTheDocument();
+  });
+
+  it("hydrates the class tab and selected class from the URL", async () => {
+    window.history.replaceState(null, "", "/2e-magic-and-monsters/?tab=classes&source=PH&class=class-bard");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Bard" })).toBeInTheDocument();
+    expect(screen.getByText("Bards learn a little bit of everything.")).toBeInTheDocument();
+    expect(screen.getAllByText("PH").length).toBeGreaterThan(0);
   });
 
   it("uses plain full labels in source menus without invalid defaults", async () => {

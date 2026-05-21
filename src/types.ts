@@ -1,4 +1,4 @@
-export type TabId = "spells" | "creatures" | "items";
+export type TabId = "spells" | "creatures" | "items" | "classes";
 
 export type FieldMap = Record<string, string>;
 
@@ -38,7 +38,15 @@ export interface ItemRecord extends BaseRecord {
   itemKinds: string[];
 }
 
-export type CompendiumRecord = SpellRecord | CreatureRecord | ItemRecord;
+export interface ClassRecord extends BaseRecord {
+  kind: "class";
+  className: string;
+  sourceTag: string;
+  slug: string;
+  progressionHtml: string;
+}
+
+export type CompendiumRecord = SpellRecord | CreatureRecord | ItemRecord | ClassRecord;
 
 export interface SpellFilters {
   wizard: boolean;
@@ -57,6 +65,11 @@ export interface BrowseFilters {
   primary: string;
   sources: string[];
   category: string;
+}
+
+export interface ClassFilters {
+  sources: string[];
+  selectedClass: string;
 }
 
 export interface DataState<T extends CompendiumRecord> {

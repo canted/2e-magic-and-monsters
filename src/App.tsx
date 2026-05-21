@@ -1,9 +1,10 @@
 import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, BookOpen, Box, ChevronDown, Search, Shield } from "lucide-react";
+import { ArrowUp, BookOpen, Box, ChevronDown, Search, Shield, UsersRound } from "lucide-react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
-import Select, { createFilter, type MultiValue } from "react-select";
+import Select, { createFilter, type MultiValue, type SingleValue } from "react-select";
 import { initialDataState, loadTabData } from "./data";
 import {
+  filterClasses,
   filterCreatures,
   filterItems,
   filterSpells,
@@ -13,6 +14,8 @@ import {
 } from "./filtering";
 import type {
   BrowseFilters,
+  ClassFilters,
+  ClassRecord,
   CompendiumRecord,
   CreatureRecord,
   DataState,
@@ -25,13 +28,15 @@ import type {
 const TABS: Array<{ id: TabId; label: string; icon: typeof BookOpen }> = [
   { id: "spells", label: "Spells", icon: BookOpen },
   { id: "creatures", label: "Monsters", icon: Shield },
-  { id: "items", label: "Magic Items", icon: Box }
+  { id: "items", label: "Magic Items", icon: Box },
+  { id: "classes", label: "Classes", icon: UsersRound }
 ];
 
 const CORE_SOURCE_ORDER = ["PH", "DMG", "MM"];
 const SPELL_SOURCE_DEFAULTS = ["PH", "MM"];
 const MONSTER_SOURCE_DEFAULTS = ["MM"];
 const ITEM_SOURCE_DEFAULTS = ["DMG"];
+const CLASS_SOURCE_DEFAULTS = ["PH"];
 
 const INITIAL_SPELL_FILTERS: SpellFilters = {
   wizard: true,
@@ -72,6 +77,26 @@ const SOURCE_METADATA: Record<string, NonNullable<SelectOption["metadata"]> & { 
   MM: {
     label: "Monstrous Manual",
     selectedLabel: "MM"
+  },
+  POSM: {
+    label: "Player's Option: Spells & Magic",
+    selectedLabel: "POSM"
+  },
+  POSP: {
+    label: "Player's Option: Skills & Powers",
+    selectedLabel: "POSP"
+  },
+  POCT: {
+    label: "Player's Option: Combat & Tactics",
+    selectedLabel: "POCT"
+  },
+  CPsiH: {
+    label: "The Complete Psionics Handbook",
+    selectedLabel: "CPsiH"
+  },
+  VC: {
+    label: "Vikings Campaign Sourcebook",
+    selectedLabel: "VC"
   }
 };
 
@@ -84,7 +109,7 @@ function sourceLabel(value: string): string {
   return SOURCE_METADATA[value]?.label || value;
 }
 
-function sourceOptionsForRecords(records: CompendiumRecord[]): SelectOption[] {
+function sourceOptionsForRecords(records: Array<{ sources: string[] }>): SelectOption[] {
   return uniqueSorted(records.flatMap((record) => record.sources))
     .sort((a, b) => {
       const [rankA, valueA] = sourceSortValue(a);
@@ -116,6 +141,7 @@ interface AppUrlState {
   spellFilters: SpellFilters;
   creatureFilters: BrowseFilters;
   itemFilters: BrowseFilters;
+  classFilters: ClassFilters;
 }
 
 const INITIAL_CREATURE_FILTERS: BrowseFilters = {
@@ -126,6 +152,11 @@ const INITIAL_CREATURE_FILTERS: BrowseFilters = {
 const INITIAL_ITEM_FILTERS: BrowseFilters = {
   ...INITIAL_BROWSE_FILTERS,
   sources: ITEM_SOURCE_DEFAULTS
+};
+
+const INITIAL_CLASS_FILTERS: ClassFilters = {
+  sources: CLASS_SOURCE_DEFAULTS,
+  selectedClass: ""
 };
 
 function cloneSpellFilters(filters: SpellFilters): SpellFilters {
@@ -143,24 +174,34 @@ function cloneBrowseFilters(filters: BrowseFilters): BrowseFilters {
   };
 }
 
+function cloneClassFilters(filters: ClassFilters): ClassFilters {
+  return {
+    ...filters,
+    sources: [...filters.sources]
+  };
+}
+
 function appUrlDefaults(): AppUrlState {
   return {
     activeTab: "spells",
     spellFilters: cloneSpellFilters(INITIAL_SPELL_FILTERS),
     creatureFilters: cloneBrowseFilters(INITIAL_CREATURE_FILTERS),
-    itemFilters: cloneBrowseFilters(INITIAL_ITEM_FILTERS)
+    itemFilters: cloneBrowseFilters(INITIAL_ITEM_FILTERS),
+    classFilters: cloneClassFilters(INITIAL_CLASS_FILTERS)
   };
 }
 
 function tabFromUrl(value: string | null): TabId {
   if (value === "monsters" || value === "creatures") return "creatures";
   if (value === "items" || value === "magic-items") return "items";
+  if (value === "classes") return "classes";
   return "spells";
 }
 
 function tabToUrl(tab: TabId): string {
   if (tab === "creatures") return "monsters";
   if (tab === "items") return "items";
+  if (tab === "classes") return "classes";
   return "spells";
 }
 
@@ -204,6 +245,14 @@ function browseFiltersFromParams(params: URLSearchParams, defaults: BrowseFilter
   };
 }
 
+function classFiltersFromParams(params: URLSearchParams): ClassFilters {
+  return {
+    ...cloneClassFilters(INITIAL_CLASS_FILTERS),
+    sources: sourcesFromParams(params, CLASS_SOURCE_DEFAULTS),
+    selectedClass: params.get("class") || ""
+  };
+}
+
 function appUrlStateFromLocation(): AppUrlState {
   const params = new URLSearchParams(window.location.search);
   const activeTab = tabFromUrl(params.get("tab"));
@@ -213,8 +262,10 @@ function appUrlStateFromLocation(): AppUrlState {
     state.spellFilters = spellFiltersFromParams(params);
   } else if (activeTab === "creatures") {
     state.creatureFilters = browseFiltersFromParams(params, INITIAL_CREATURE_FILTERS);
-  } else {
+  } else if (activeTab === "items") {
     state.itemFilters = browseFiltersFromParams(params, INITIAL_ITEM_FILTERS, "kind");
+  } else {
+    state.classFilters = classFiltersFromParams(params);
   }
   return state;
 }
@@ -238,15 +289,28 @@ function serializeBrowseFilters(params: URLSearchParams, filters: BrowseFilters,
   if (filters.category) params.set("category", filters.category);
 }
 
-function urlForState(activeTab: TabId, spellFilters: SpellFilters, creatureFilters: BrowseFilters, itemFilters: BrowseFilters) {
+function serializeClassFilters(params: URLSearchParams, filters: ClassFilters) {
+  appendSources(params, filters.sources);
+  if (filters.selectedClass) params.set("class", filters.selectedClass);
+}
+
+function urlForState(
+  activeTab: TabId,
+  spellFilters: SpellFilters,
+  creatureFilters: BrowseFilters,
+  itemFilters: BrowseFilters,
+  classFilters: ClassFilters
+) {
   const params = new URLSearchParams();
   params.set("tab", tabToUrl(activeTab));
   if (activeTab === "spells") {
     serializeSpellFilters(params, spellFilters);
   } else if (activeTab === "creatures") {
     serializeBrowseFilters(params, creatureFilters);
-  } else {
+  } else if (activeTab === "items") {
     serializeBrowseFilters(params, itemFilters, "kind");
+  } else {
+    serializeClassFilters(params, classFilters);
   }
   return `${window.location.pathname}?${params.toString()}`;
 }
@@ -299,7 +363,10 @@ function badgesFor(record: CompendiumRecord): string[] {
       record.fields.Source
     ]);
   }
-  return unique([...record.itemKinds.slice(0, 2), record.fields.XP, record.fields.Value]);
+  if (record.kind === "item") {
+    return unique([...record.itemKinds.slice(0, 2), record.fields.XP, record.fields.Value]);
+  }
+  return unique([record.fields.Group, record.fields.Source]);
 }
 
 function spellTaxonomyDetail(spell: SpellRecord): [string, string] {
@@ -821,6 +888,155 @@ function BrowseControls({
   );
 }
 
+function classOptionsForRecords(records: ClassRecord[]): SelectOption[] {
+  const nameCounts = records.reduce((counts, record) => {
+    const key = record.name.toLocaleLowerCase();
+    counts.set(key, (counts.get(key) || 0) + 1);
+    return counts;
+  }, new Map<string, number>());
+
+  return records.map((record) => {
+    const duplicatedName = (nameCounts.get(record.name.toLocaleLowerCase()) || 0) > 1;
+    const sourceNames = record.sources.map(sourceLabel).join(", ");
+    return {
+      label: duplicatedName ? `${record.name} - ${sourceNames}` : record.name,
+      value: record.id
+    };
+  });
+}
+
+function ClassControls({
+  filters,
+  setFilters,
+  records
+}: {
+  filters: ClassFilters;
+  setFilters: (filters: ClassFilters) => void;
+  records: ClassRecord[];
+}) {
+  const update = (patch: Partial<ClassFilters>) => setFilters({ ...filters, ...patch });
+  const sourceOptions = useMemo(() => sourceOptionsForRecords(records), [records]);
+  const selectedSources = useMemo(() => selectedOptions(sourceOptions, filters.sources), [filters.sources, sourceOptions]);
+  const filteredClasses = useMemo(() => filterClasses(records, filters), [filters, records]);
+  const classOptions = useMemo(() => classOptionsForRecords(filteredClasses), [filteredClasses]);
+  const selectedClass = useMemo(
+    () => classOptions.find((option) => option.value === filters.selectedClass) || null,
+    [classOptions, filters.selectedClass]
+  );
+
+  useEffect(() => {
+    if (records.length === 0) return;
+    const validSources = new Set(sourceOptions.map((option) => option.value));
+    const sources =
+      sourceOptions.length > 0 ? filters.sources.filter((source) => validSources.has(source)) : filters.sources;
+    const validClasses = new Set(classOptions.map((option) => option.value));
+    const selectedClass =
+      filters.selectedClass && validClasses.has(filters.selectedClass)
+        ? filters.selectedClass
+        : classOptions[0]?.value || "";
+
+    if (sources.length !== filters.sources.length || selectedClass !== filters.selectedClass) {
+      setFilters({ ...filters, selectedClass, sources });
+    }
+  }, [classOptions, filters, records.length, setFilters, sourceOptions]);
+
+  return (
+    <form className="filter-bar class-filter-bar" role="search">
+      <label className="field source-field" htmlFor="class-source-select">
+        <span>Source</span>
+        <Select<SelectOption, true>
+          aria-label="class sources"
+          className="taxonomy-picker"
+          classNamePrefix="taxonomy-picker"
+          closeMenuOnSelect={false}
+          hideSelectedOptions={false}
+          inputId="class-source-select"
+          isClearable
+          isMulti
+          onChange={(value: MultiValue<SelectOption>) =>
+            update({
+              sources: value.map((option) => option.value)
+            })
+          }
+          options={sourceOptions}
+          placeholder="All sources"
+          filterOption={sourceFilterOption}
+          formatOptionLabel={formatSourceOption}
+          value={selectedSources}
+        />
+      </label>
+
+      <label className="field class-select-field" htmlFor="class-select">
+        <span>Class</span>
+        <Select<SelectOption, false>
+          aria-label="Select class"
+          className="taxonomy-picker"
+          classNamePrefix="taxonomy-picker"
+          inputId="class-select"
+          isClearable={false}
+          onChange={(value: SingleValue<SelectOption>) => update({ selectedClass: value?.value || "" })}
+          options={classOptions}
+          placeholder="Choose a class"
+          value={selectedClass}
+        />
+      </label>
+    </form>
+  );
+}
+
+function ClassReference({
+  record,
+  loading
+}: {
+  record: ClassRecord | undefined;
+  loading: boolean;
+}) {
+  if (loading) {
+    return <div className="empty-state">Loading...</div>;
+  }
+
+  if (!record) {
+    return <div className="empty-state">No class selected.</div>;
+  }
+
+  return (
+    <article className="class-reference">
+      <header className="class-reference-header">
+        <div>
+          <p>Class Reference</p>
+          <h1>{record.name}</h1>
+        </div>
+        <span className="result-badges" aria-hidden="true">
+          {record.sources.map((source) => (
+            <span className="badge" key={source}>
+              {SOURCE_METADATA[source]?.selectedLabel || source}
+            </span>
+          ))}
+          {record.fields.Group ? <span className="badge">{record.fields.Group}</span> : null}
+        </span>
+      </header>
+
+      <dl className="detail-grid class-detail-grid">
+        {fieldEntries(record.fields).map(([label, value]) => (
+          <div className="detail-field" key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+
+      {record.progressionHtml ? (
+        <section className="class-progression" dangerouslySetInnerHTML={{ __html: record.progressionHtml }} />
+      ) : (
+        <div className="empty-state class-empty-state">No progression table found for this class source.</div>
+      )}
+
+      <article className="wiki-body class-body" dangerouslySetInnerHTML={{ __html: record.bodyHtml }} />
+      <DetailFooter record={record} />
+    </article>
+  );
+}
+
 function StatusLine({
   activeTab,
   total,
@@ -832,7 +1048,14 @@ function StatusLine({
   visible: number;
   loading: boolean;
 }) {
-  const noun = activeTab === "spells" ? "spells" : activeTab === "creatures" ? "monsters" : "magic items";
+  const noun =
+    activeTab === "spells"
+      ? "spells"
+      : activeTab === "creatures"
+        ? "monsters"
+        : activeTab === "items"
+          ? "magic items"
+          : "classes";
   return (
     <div className="status-line" aria-live="polite">
       {loading ? "Loading..." : `${visible.toLocaleString()} of ${total.toLocaleString()} ${noun}`}
@@ -846,9 +1069,11 @@ export default function App() {
   const [spells, setSpells] = useState<DataState<SpellRecord>>(initialDataState());
   const [creatures, setCreatures] = useState<DataState<CreatureRecord>>(initialDataState());
   const [items, setItems] = useState<DataState<ItemRecord>>(initialDataState());
+  const [classes, setClasses] = useState<DataState<ClassRecord>>(initialDataState());
   const [spellFilters, setSpellFilters] = useState<SpellFilters>(initialUrlState.spellFilters);
   const [creatureFilters, setCreatureFilters] = useState<BrowseFilters>(initialUrlState.creatureFilters);
   const [itemFilters, setItemFilters] = useState<BrowseFilters>(initialUrlState.itemFilters);
+  const [classFilters, setClassFilters] = useState<ClassFilters>(initialUrlState.classFilters);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const controlsRef = useRef<HTMLElement | null>(null);
   const scrollTopRef = useRef<HTMLButtonElement | null>(null);
@@ -866,8 +1091,10 @@ export default function App() {
         setSpellFilters(nextState.spellFilters);
       } else if (nextState.activeTab === "creatures") {
         setCreatureFilters(nextState.creatureFilters);
-      } else {
+      } else if (nextState.activeTab === "items") {
         setItemFilters(nextState.itemFilters);
+      } else {
+        setClassFilters(nextState.classFilters);
       }
     };
     window.addEventListener("popstate", applyCurrentUrl);
@@ -875,7 +1102,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const nextUrl = urlForState(activeTab, spellFilters, creatureFilters, itemFilters);
+    const nextUrl = urlForState(activeTab, spellFilters, creatureFilters, itemFilters, classFilters);
     const currentUrl = `${window.location.pathname}${window.location.search}`;
     if (!hasSyncedUrlRef.current) {
       hasSyncedUrlRef.current = true;
@@ -887,7 +1114,7 @@ export default function App() {
     if (currentUrl !== nextUrl) {
       window.history.pushState(null, "", nextUrl);
     }
-  }, [activeTab, creatureFilters, itemFilters, spellFilters]);
+  }, [activeTab, classFilters, creatureFilters, itemFilters, spellFilters]);
 
   useEffect(() => {
     const updateScrollTopVisibility = () => {
@@ -928,7 +1155,13 @@ export default function App() {
         .then((records) => setItems({ status: "ready", records }))
         .catch((error: Error) => setItems({ status: "error", records: [], error: error.message }));
     }
-  }, [activeTab, creatures.status, items.status, spells.status]);
+    if (activeTab === "classes" && classes.status === "idle") {
+      setClasses({ status: "loading", records: [] });
+      loadTabData("classes")
+        .then((records) => setClasses({ status: "ready", records }))
+        .catch((error: Error) => setClasses({ status: "error", records: [], error: error.message }));
+    }
+  }, [activeTab, classes.status, creatures.status, items.status, spells.status]);
 
   const deferredSpellFilters = {
     ...spellFilters,
@@ -954,6 +1187,11 @@ export default function App() {
   const visibleItems = useMemo(
     () => filterItems(items.records, deferredItemFilters),
     [deferredItemFilters, items.records]
+  );
+  const visibleClasses = useMemo(() => filterClasses(classes.records, classFilters), [classes.records, classFilters]);
+  const selectedClassRecord = useMemo(
+    () => visibleClasses.find((record) => record.id === classFilters.selectedClass) || visibleClasses[0],
+    [classFilters.selectedClass, visibleClasses]
   );
 
   const creatureSourceRecords = useMemo(
@@ -987,10 +1225,24 @@ export default function App() {
     [itemSourceRecords]
   );
 
-  const activeState = activeTab === "spells" ? spells : activeTab === "creatures" ? creatures : items;
+  const activeState =
+    activeTab === "spells" ? spells : activeTab === "creatures" ? creatures : activeTab === "items" ? items : classes;
   const activeRecords =
-    activeTab === "spells" ? visibleSpells : activeTab === "creatures" ? visibleCreatures : visibleItems;
-  const totalCount = activeTab === "spells" ? spells.records.length : activeTab === "creatures" ? creatures.records.length : items.records.length;
+    activeTab === "spells"
+      ? visibleSpells
+      : activeTab === "creatures"
+        ? visibleCreatures
+        : activeTab === "items"
+          ? visibleItems
+          : visibleClasses;
+  const totalCount =
+    activeTab === "spells"
+      ? spells.records.length
+      : activeTab === "creatures"
+        ? creatures.records.length
+        : activeTab === "items"
+          ? items.records.length
+          : classes.records.length;
 
   return (
     <main className="app-shell">
@@ -1042,12 +1294,18 @@ export default function App() {
             sourceOptions={itemSources}
           />
         ) : null}
+        {activeTab === "classes" ? (
+          <ClassControls filters={classFilters} records={classes.records} setFilters={setClassFilters} />
+        ) : null}
       </section>
 
       <section className="results-region" aria-label="Results">
         {activeState.status === "error" ? <div className="empty-state">Unable to load data: {activeState.error}</div> : null}
-        {activeState.status !== "error" ? (
+        {activeState.status !== "error" && activeTab !== "classes" ? (
           <VirtualResults expandedId={expandedId} records={activeRecords} setExpandedId={setExpandedId} />
+        ) : null}
+        {activeState.status !== "error" && activeTab === "classes" ? (
+          <ClassReference loading={classes.status === "loading"} record={selectedClassRecord} />
         ) : null}
       </section>
 

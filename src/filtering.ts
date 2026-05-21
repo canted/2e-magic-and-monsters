@@ -1,4 +1,4 @@
-import type { BrowseFilters, CreatureRecord, ItemRecord, SpellFilters, SpellRecord } from "./types";
+import type { BrowseFilters, ClassFilters, ClassRecord, CreatureRecord, ItemRecord, SpellFilters, SpellRecord } from "./types";
 
 export function normalizeQuery(value: string): string {
   return value.trim().toLocaleLowerCase();
@@ -68,6 +68,13 @@ export function filterItems(records: ItemRecord[], filters: BrowseFilters): Item
     if (!includesAnySource(record.sources, filters.sources)) return false;
     if (filters.primary && !record.itemKinds.includes(filters.primary)) return false;
     if (filters.category && !record.categories.includes(filters.category)) return false;
+    return true;
+  });
+}
+
+export function filterClasses(records: ClassRecord[], filters: ClassFilters): ClassRecord[] {
+  return records.filter((record) => {
+    if (!includesAnySource(record.sources, filters.sources)) return false;
     return true;
   });
 }
