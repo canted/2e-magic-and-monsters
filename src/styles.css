@@ -587,9 +587,15 @@ button {
 }
 
 .wiki-table caption {
+  background: var(--accent-soft);
+  border-bottom: 1px solid #adc7d8;
+  caption-side: top;
   color: var(--accent-strong);
+  font-size: 0.82rem;
   font-weight: 850;
-  margin-bottom: 6px;
+  line-height: 1.2;
+  margin: 0;
+  padding: 8px 9px;
   text-align: left;
 }
 
@@ -625,6 +631,23 @@ button {
 
 .wiki-table tr:nth-child(even) td {
   background: var(--accent-pale);
+}
+
+.wiki-table-wrap--compact {
+  display: inline-block;
+  width: auto;
+}
+
+.wiki-table--metadata {
+  min-width: 0;
+  width: auto;
+}
+
+.wiki-table--metadata td:first-child {
+  background: var(--accent-pale);
+  color: var(--accent-strong);
+  font-weight: 850;
+  white-space: nowrap;
 }
 
 .detail-footer {
