@@ -519,30 +519,6 @@ button {
   overflow-wrap: anywhere;
 }
 
-.expanded-details {
-  background: var(--accent-pale);
-  border: 1px solid #c2d8e6;
-  border-radius: 7px;
-  margin: 0 0 18px;
-  padding: 12px;
-}
-
-.expanded-details h3 {
-  color: var(--accent-strong);
-  font-size: 0.76rem;
-  font-weight: 900;
-  letter-spacing: 0;
-  margin: 0 0 10px;
-  text-transform: uppercase;
-}
-
-.expanded-detail-grid {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: minmax(0, 1fr) minmax(120px, 180px);
-  margin: 0;
-}
-
 .wiki-body {
   color: #202327;
   font-family: Georgia, "Times New Roman", serif;
@@ -648,6 +624,30 @@ button {
 
 .wiki-table tr:nth-child(even) td {
   background: var(--accent-pale);
+}
+
+.detail-footer {
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+}
+
+.detail-footer span {
+  color: var(--accent-strong);
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 850;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+}
+
+.detail-footer p {
+  font-size: 0.88rem;
+  line-height: 1.35;
+  margin: 0;
 }
 
 .empty-state {

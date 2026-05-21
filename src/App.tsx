@@ -56,6 +56,7 @@ interface SelectOption {
     author?: string;
     year?: string;
     countLabel?: string;
+    selectedLabel?: string;
   };
 }
 
@@ -64,7 +65,8 @@ const SOURCE_METADATA: Record<string, NonNullable<SelectOption["metadata"]> & { 
     label: "Monstrous Manual",
     author: "Tim Beach",
     year: "1995",
-    countLabel: "310 monsters"
+    countLabel: "310 monsters",
+    selectedLabel: "MM"
   }
 };
 
@@ -96,7 +98,10 @@ function selectedOptions(options: SelectOption[], selectedValues: string[]): Sel
 }
 
 function formatSourceOption(option: SelectOption, { context }: { context: "menu" | "value" }) {
-  if (!option.metadata || context === "value") {
+  if (context === "value") {
+    return option.metadata?.selectedLabel || option.label;
+  }
+  if (!option.metadata) {
     return option.label;
   }
 
@@ -140,8 +145,8 @@ function spellLevelOptions(records: SpellRecord[]): string[] {
   });
 }
 
-function fieldEntries(fields: Record<string, string>): Array<[string, string]> {
-  return Object.entries(fields).filter(([, value]) => Boolean(value));
+function fieldEntries(fields: Record<string, string>, excluded = new Set<string>()): Array<[string, string]> {
+  return Object.entries(fields).filter(([label, value]) => Boolean(value) && !excluded.has(label));
 }
 
 function componentsLabel(spell: SpellRecord): string {
@@ -169,34 +174,58 @@ function badgesFor(record: CompendiumRecord): string[] {
   return unique([...record.itemKinds.slice(0, 2), record.fields.XP, record.fields.Value]);
 }
 
-function SpellExpandedDetails({ spell }: { spell: SpellRecord }) {
-  const taxonomy = [
-    ...spell.schools.map((school) => `School: ${school}`),
-    ...spell.spheres.map((sphere) => `Sphere: ${sphere}`)
-  ];
+function spellTaxonomyDetail(spell: SpellRecord): [string, string] {
+  if (spell.spellClass === "Wizard" && spell.schools.length > 0) {
+    return ["Schools", spell.schools.join(", ")];
+  }
+  if (spell.spellClass === "Priest" && spell.spheres.length > 0) {
+    return ["Spheres", spell.spheres.join(", ")];
+  }
+  if (spell.schools.length > 0 && spell.spheres.length === 0) {
+    return ["Schools", spell.schools.join(", ")];
+  }
+  if (spell.spheres.length > 0 && spell.schools.length === 0) {
+    return ["Spheres", spell.spheres.join(", ")];
+  }
+
+  const values = [
+    spell.schools.length > 0 ? `Schools: ${spell.schools.join(", ")}` : "",
+    spell.spheres.length > 0 ? `Spheres: ${spell.spheres.join(", ")}` : ""
+  ].filter(Boolean);
+  return ["Schools / Spheres", values.join("; ") || "None"];
+}
+
+function DetailFooter({ record }: { record: CompendiumRecord }) {
+  const source = record.fields.Source;
+  const hasCategories = record.categories.length > 0;
+  if (!source && !hasCategories) return null;
 
   return (
-    <section className="expanded-details" aria-label="Expanded spell details">
-      <h3>Expanded Details</h3>
-      <dl className="expanded-detail-grid">
-        <div className="detail-field">
-          <dt>Schools / Spheres</dt>
-          <dd>{taxonomy.join(", ") || "None"}</dd>
+    <footer className="detail-footer">
+      {source ? (
+        <div>
+          <span>Source</span>
+          <p>{source}</p>
         </div>
-        <div className="detail-field">
-          <dt>Components</dt>
-          <dd>{componentsLabel(spell) || "None"}</dd>
+      ) : null}
+      {hasCategories ? (
+        <div>
+          <span>Categories</span>
+          <p>{record.categories.join(", ")}</p>
         </div>
-      </dl>
-    </section>
+      ) : null}
+    </footer>
   );
 }
 
 function ResultDetail({ record }: { record: CompendiumRecord }) {
+  const detailFields = fieldEntries(record.fields, record.kind === "spell" ? new Set(["Source"]) : undefined);
+  const spellTaxonomy = record.kind === "spell" ? spellTaxonomyDetail(record) : null;
+
   return (
     <div className="result-detail">
       <dl className="detail-grid">
-        {fieldEntries(record.fields).map(([label, value]) => (
+        {detailFields.map(([label, value]) => (
           <div className="detail-field" key={label}>
             <dt>{label}</dt>
             <dd>{value}</dd>
@@ -212,17 +241,25 @@ function ResultDetail({ record }: { record: CompendiumRecord }) {
               <dt>Level</dt>
               <dd>{record.level || "Unlisted"}</dd>
             </div>
+            <div className="detail-field">
+              <dt>{spellTaxonomy?.[0]}</dt>
+              <dd>{spellTaxonomy?.[1]}</dd>
+            </div>
+            <div className="detail-field">
+              <dt>Components</dt>
+              <dd>{componentsLabel(record) || "None"}</dd>
+            </div>
           </>
         ) : null}
-        {record.categories.length > 0 ? (
+        {record.kind !== "spell" && record.categories.length > 0 ? (
           <div className="detail-field detail-field-wide">
             <dt>Categories</dt>
             <dd>{record.categories.join(", ")}</dd>
           </div>
         ) : null}
       </dl>
-      {record.kind === "spell" ? <SpellExpandedDetails spell={record} /> : null}
       <article className="wiki-body" dangerouslySetInnerHTML={{ __html: record.bodyHtml }} />
+      {record.kind === "spell" ? <DetailFooter record={record} /> : null}
     </div>
   );
 }

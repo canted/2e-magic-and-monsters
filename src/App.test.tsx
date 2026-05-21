@@ -182,7 +182,7 @@ describe("App", () => {
   });
 
   it("searches spell descriptions and opens accordion details", async () => {
-    render(<App />);
+    const { container } = render(<App />);
     await screen.findByText("Magic Missile");
 
     fireEvent.change(screen.getByLabelText("Search spells"), { target: { value: "acid" } });
@@ -192,9 +192,27 @@ describe("App", () => {
 
     fireEvent.click(screen.getByText("Acid Arrow"));
     expect(await screen.findByText("An arrow that burns with acid.")).toBeInTheDocument();
-    expect(screen.getByText("Expanded Details")).toBeInTheDocument();
-    expect(screen.getByText("School: Conjuration")).toBeInTheDocument();
-    expect(screen.getByText("VSM")).toBeInTheDocument();
+    const detail = container.querySelector(".result-detail") as HTMLElement;
+    expect(screen.queryByText("Expanded Details")).not.toBeInTheDocument();
+    expect(within(detail).getByText("Schools")).toBeInTheDocument();
+    expect(within(detail).getByText("Conjuration")).toBeInTheDocument();
+    expect(within(detail).getByText("Components")).toBeInTheDocument();
+    expect(within(detail).getByText("VSM")).toBeInTheDocument();
+    const detailHtml = detail.innerHTML;
+    expect(detailHtml.indexOf("wiki-body")).toBeLessThan(detailHtml.indexOf("detail-footer"));
+    expect(container.querySelector(".detail-footer")?.textContent).toContain("Source");
+    expect(container.querySelector(".detail-footer")?.textContent).toContain("PHB");
+    expect(container.querySelector(".detail-footer")?.textContent).toContain("Categories");
+  });
+
+  it("labels priest spell taxonomy as spheres", async () => {
+    const { container } = render(<App />);
+    await screen.findByText("Bless");
+
+    fireEvent.click(screen.getByText("Bless"));
+    const detail = container.querySelector(".result-detail") as HTMLElement;
+    expect(within(detail).getByText("Spheres")).toBeInTheDocument();
+    expect(within(detail).getByText("All")).toBeInTheDocument();
   });
 
   it("filters by level, taxonomy, and material component", async () => {
@@ -231,6 +249,7 @@ describe("App", () => {
 
     fireEvent.click(screen.getByText("Monsters"));
     expect(await screen.findByText("Aarakocra")).toBeInTheDocument();
+    expect(screen.getByText("MM")).toBeInTheDocument();
     expect(screen.getAllByText("Monstrous Manual").length).toBeGreaterThan(0);
     expect(screen.queryByText("Annual Beast")).not.toBeInTheDocument();
 
