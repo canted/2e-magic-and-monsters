@@ -2,19 +2,18 @@
   color-scheme: light;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --bg: #f5f2ea;
-  --surface: #fffdf8;
+  --bg: #f2f4f5;
+  --surface: #ffffff;
   --surface-strong: #ffffff;
   --ink: #202327;
   --muted: #5f6670;
-  --line: #cbd4da;
-  --control-border: #b8c9d6;
+  --line: #c8d1d8;
+  --control-border: #b6c5ce;
   --accent: #1e5f9d;
   --accent-strong: #134b7c;
   --accent-soft: #dcecf7;
-  --accent-pale: #edf6fb;
-  --paper-band: #e9e6df;
-  --warm: #6f6257;
+  --accent-pale: #edf5fa;
+  --paper-band: #e7eaed;
   --shadow: 0 14px 30px rgba(22, 50, 78, 0.12);
 }
 

@@ -1,6 +1,6 @@
-# AD&D 2e Compendium
+# 2e Magic & Monsters
 
-Static React/Vite compendium for AD&D 2e spells, monsters, and magic items.
+Static React/Vite browser for AD&D 2e spells, monsters, and magic items.
 
 ## Development
 
@@ -24,7 +24,7 @@ This directory is intended to be its own Git repository. The included workflow b
 After creating the separate GitHub repository:
 
 ```sh
-git remote add origin git@github.com:YOUR_USER/YOUR_REPO.git
+git remote add origin git@github.com:YOUR_USER/2e-magic-and-monsters.git
 git push -u origin main
 ```
 

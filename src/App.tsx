@@ -511,7 +511,7 @@ export default function App() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <nav className="tabs" aria-label="Compendium sections">
+        <nav className="tabs" aria-label="Content sections">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             return (
