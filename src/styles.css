@@ -108,11 +108,18 @@ button {
   display: grid;
   gap: 12px;
   grid-template-columns: auto minmax(260px, 1fr) minmax(120px, 160px) minmax(220px, 300px) auto;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.browse-filter-bar {
+  grid-template-columns: minmax(260px, 1fr) minmax(150px, 240px) minmax(180px, 320px);
 }
 
 .field {
   display: grid;
   gap: 6px;
+  min-width: 0;
 }
 
 .field > span:first-child,
@@ -132,11 +139,15 @@ button {
   border-radius: 7px;
   color: var(--ink);
   min-height: 40px;
+  min-width: 0;
+  width: 100%;
 }
 
 .field input,
 .field select {
+  max-width: 100%;
   padding: 0 10px;
+  text-overflow: ellipsis;
 }
 
 .search-input {
@@ -537,6 +548,10 @@ button {
     grid-template-columns: 1fr 1fr;
   }
 
+  .browse-filter-bar {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
   .search-field,
   .taxonomy-field {
     grid-column: 1 / -1;
@@ -566,7 +581,11 @@ button {
   }
 
   .filter-bar {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .browse-filter-bar {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .search-field,

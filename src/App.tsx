@@ -377,7 +377,7 @@ function BrowseControls({
 }) {
   const update = (patch: Partial<BrowseFilters>) => setFilters({ ...filters, ...patch });
   return (
-    <form className="filter-bar" role="search">
+    <form className="filter-bar browse-filter-bar" role="search">
       <label className="field search-field">
         <span>Search</span>
         <span className="search-input">
