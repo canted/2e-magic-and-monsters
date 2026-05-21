@@ -102,6 +102,19 @@ const items: ItemRecord[] = [
     bodyHtml: "<p>A silver clasp that holds on command.</p>",
     bodyText: "a silver clasp that holds on command",
     searchText: "cloak clasp of holding magic cloak clasp a silver clasp that holds on command"
+  },
+  {
+    id: "item-2",
+    kind: "item",
+    title: "Ring of Sparks (Magic Ring)",
+    name: "Ring of Sparks",
+    itemType: "Magic Ring",
+    fields: { Type: "Magic Ring", XP: "500 xp", Value: "2,500 gp", Source: "Encyclopedia Magica" },
+    sources: ["Encyclopedia Magica"],
+    categories: ["Magic Items", "Magic Rings"],
+    bodyHtml: "<p>A ring that crackles with sparks.</p>",
+    bodyText: "a ring that crackles with sparks",
+    searchText: "ring of sparks magic ring encyclopedia magica a ring that crackles with sparks"
   }
 ];
 
@@ -197,5 +210,19 @@ describe("App", () => {
 
     fireEvent.click(screen.getByText("Magic Items"));
     expect(await screen.findByText("Cloak Clasp of Holding")).toBeInTheDocument();
+  });
+
+  it("narrows browse filter options to the selected source", async () => {
+    render(<App />);
+    await screen.findByText("Magic Missile");
+
+    fireEvent.click(screen.getByText("Magic Items"));
+    await screen.findByText("Cloak Clasp of Holding");
+
+    expect(screen.getByLabelText("magic items type")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Magic Cloak Clasp" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Magic Ring" })).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Magic Cloak Clasps" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Magic Rings" })).not.toBeInTheDocument();
   });
 });

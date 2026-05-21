@@ -59,13 +59,15 @@ function sourceSortValue(value: string): [number, string] {
   return [coreIndex === -1 ? CORE_SOURCE_DEFAULTS.length : coreIndex, value];
 }
 
-function sourceOptionsForRecords(records: CompendiumRecord[]): SelectOption[] {
-  return uniqueSorted([...CORE_SOURCE_DEFAULTS, ...records.flatMap((record) => record.sources)]).sort((a, b) => {
-    const [rankA, valueA] = sourceSortValue(a);
-    const [rankB, valueB] = sourceSortValue(b);
-    if (rankA !== rankB) return rankA - rankB;
-    return valueA.localeCompare(valueB, undefined, { numeric: true, sensitivity: "base" });
-  }).map((source) => ({ label: source, value: source }));
+function sourceOptionsForRecords(records: CompendiumRecord[], selectedSources: string[] = []): SelectOption[] {
+  return uniqueSorted([...selectedSources, ...records.flatMap((record) => record.sources)])
+    .sort((a, b) => {
+      const [rankA, valueA] = sourceSortValue(a);
+      const [rankB, valueB] = sourceSortValue(b);
+      if (rankA !== rankB) return rankA - rankB;
+      return valueA.localeCompare(valueB, undefined, { numeric: true, sensitivity: "base" });
+    })
+    .map((source) => ({ label: source, value: source }));
 }
 
 function selectedOptions(options: SelectOption[], selectedValues: string[]): SelectOption[] {
@@ -315,10 +317,13 @@ function SpellControls({
   setFilters: (filters: SpellFilters) => void;
   records: SpellRecord[];
 }) {
-  const levels = useMemo(() => spellLevelOptions(records), [records]);
-  const schools = useMemo(() => uniqueSorted(records.flatMap((record) => record.schools)), [records]);
-  const spheres = useMemo(() => uniqueSorted(records.flatMap((record) => record.spheres)), [records]);
-  const sourceOptions = useMemo(() => sourceOptionsForRecords(records), [records]);
+  const levelRecords = useMemo(() => filterSpells(records, { ...filters, level: "" }), [filters, records]);
+  const taxonomyRecords = useMemo(() => filterSpells(records, { ...filters, taxonomy: [] }), [filters, records]);
+  const sourceRecords = useMemo(() => filterSpells(records, { ...filters, sources: [] }), [filters, records]);
+  const levels = useMemo(() => spellLevelOptions(levelRecords), [levelRecords]);
+  const schools = useMemo(() => uniqueSorted(taxonomyRecords.flatMap((record) => record.schools)), [taxonomyRecords]);
+  const spheres = useMemo(() => uniqueSorted(taxonomyRecords.flatMap((record) => record.spheres)), [taxonomyRecords]);
+  const sourceOptions = useMemo(() => sourceOptionsForRecords(sourceRecords, filters.sources), [filters.sources, sourceRecords]);
   const taxonomyOptions = useMemo(
     () => [
       {
@@ -337,6 +342,16 @@ function SpellControls({
     return taxonomyOptions.flatMap((group) => group.options).filter((option) => selected.has(option.value));
   }, [filters.taxonomy, taxonomyOptions]);
   const selectedSources = useMemo(() => selectedOptions(sourceOptions, filters.sources), [filters.sources, sourceOptions]);
+
+  useEffect(() => {
+    const validLevels = new Set(levels);
+    const validTaxonomy = new Set(taxonomyOptions.flatMap((group) => group.options.map((option) => option.value)));
+    const taxonomy = filters.taxonomy.filter((value) => validTaxonomy.has(value));
+    const level = filters.level && !validLevels.has(filters.level) ? "" : filters.level;
+    if (level !== filters.level || taxonomy.length !== filters.taxonomy.length) {
+      setFilters({ ...filters, level, taxonomy });
+    }
+  }, [filters, levels, setFilters, taxonomyOptions]);
 
   const update = (patch: Partial<SpellFilters>) => setFilters({ ...filters, ...patch });
   const updateClass = (key: "wizard" | "priest", checked: boolean) => {
@@ -487,6 +502,17 @@ function BrowseControls({
   const update = (patch: Partial<BrowseFilters>) => setFilters({ ...filters, ...patch });
   const selectedSources = useMemo(() => selectedOptions(sourceOptions, filters.sources), [filters.sources, sourceOptions]);
   const sourceInputId = `${label.replace(/\s+/g, "-")}-source-select`;
+
+  useEffect(() => {
+    const validPrimary = new Set(primaryOptions || []);
+    const validCategories = new Set(categoryOptions);
+    const primary = primaryOptions && filters.primary && !validPrimary.has(filters.primary) ? "" : filters.primary;
+    const category = filters.category && !validCategories.has(filters.category) ? "" : filters.category;
+    if (primary !== filters.primary || category !== filters.category) {
+      setFilters({ ...filters, primary, category });
+    }
+  }, [categoryOptions, filters, primaryOptions, setFilters]);
+
   return (
     <form className="filter-bar browse-filter-bar" role="search">
       <label className="field search-field">
@@ -526,7 +552,11 @@ function BrowseControls({
       {primaryLabel && primaryOptions ? (
         <label className="field">
           <span>{primaryLabel}</span>
-          <select value={filters.primary} onChange={(event) => update({ primary: event.currentTarget.value })}>
+          <select
+            aria-label={`${label} ${primaryLabel.toLocaleLowerCase()}`}
+            value={filters.primary}
+            onChange={(event) => update({ primary: event.currentTarget.value })}
+          >
             <option value="">All</option>
             {primaryOptions.map((option) => (
               <option key={option} value={option}>
@@ -539,7 +569,11 @@ function BrowseControls({
 
       <label className="field">
         <span>Category</span>
-        <select value={filters.category} onChange={(event) => update({ category: event.currentTarget.value })}>
+        <select
+          aria-label={`${label} category`}
+          value={filters.category}
+          onChange={(event) => update({ category: event.currentTarget.value })}
+        >
           <option value="">All</option>
           {categoryOptions.map((option) => (
             <option key={option} value={option}>
@@ -654,11 +688,38 @@ export default function App() {
     [deferredItemFilters, items.records]
   );
 
-  const creatureSources = useMemo(() => sourceOptionsForRecords(creatures.records), [creatures.records]);
-  const creatureCategories = useMemo(() => uniqueCategories(creatures.records), [creatures.records]);
-  const itemTypes = useMemo(() => uniqueSorted(items.records.map((record) => record.itemType)), [items.records]);
-  const itemSources = useMemo(() => sourceOptionsForRecords(items.records), [items.records]);
-  const itemCategories = useMemo(() => uniqueCategories(items.records), [items.records]);
+  const creatureSourceRecords = useMemo(
+    () => filterCreatures(creatures.records, { ...deferredCreatureFilters, sources: [] }),
+    [creatures.records, deferredCreatureFilters]
+  );
+  const creatureCategoryRecords = useMemo(
+    () => filterCreatures(creatures.records, { ...deferredCreatureFilters, category: "" }),
+    [creatures.records, deferredCreatureFilters]
+  );
+  const creatureSources = useMemo(
+    () => sourceOptionsForRecords(creatureSourceRecords, creatureFilters.sources),
+    [creatureFilters.sources, creatureSourceRecords]
+  );
+  const creatureCategories = useMemo(() => uniqueCategories(creatureCategoryRecords), [creatureCategoryRecords]);
+
+  const itemSourceRecords = useMemo(
+    () => filterItems(items.records, { ...deferredItemFilters, sources: [] }),
+    [deferredItemFilters, items.records]
+  );
+  const itemTypeRecords = useMemo(
+    () => filterItems(items.records, { ...deferredItemFilters, primary: "" }),
+    [deferredItemFilters, items.records]
+  );
+  const itemCategoryRecords = useMemo(
+    () => filterItems(items.records, { ...deferredItemFilters, category: "" }),
+    [deferredItemFilters, items.records]
+  );
+  const itemTypes = useMemo(() => uniqueSorted(itemTypeRecords.map((record) => record.itemType)), [itemTypeRecords]);
+  const itemSources = useMemo(
+    () => sourceOptionsForRecords(itemSourceRecords, itemFilters.sources),
+    [itemFilters.sources, itemSourceRecords]
+  );
+  const itemCategories = useMemo(() => uniqueCategories(itemCategoryRecords), [itemCategoryRecords]);
 
   const activeState = activeTab === "spells" ? spells : activeTab === "creatures" ? creatures : items;
   const activeRecords =
