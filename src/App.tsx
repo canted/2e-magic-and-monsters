@@ -129,7 +129,7 @@ function badgesFor(record: CompendiumRecord): string[] {
       record.fields.Source
     ]);
   }
-  return unique([record.itemType, record.fields.XP, record.fields.Value]);
+  return unique([...record.itemKinds.slice(0, 2), record.fields.XP, record.fields.Value]);
 }
 
 function ResultDetail({ record }: { record: CompendiumRecord }) {
@@ -192,8 +192,8 @@ function ResultRow({
       <button className="result-summary" type="button" onClick={onToggle} aria-expanded={expanded}>
         <span className="result-title">{record.name}</span>
         <span className="result-badges" aria-hidden="true">
-          {badgesFor(record).map((badge) => (
-            <span className="badge" key={`${record.id}-${badge}`}>
+          {badgesFor(record).map((badge, index) => (
+            <span className="badge" key={`${record.id}-${index}-${badge}`}>
               {badge}
             </span>
           ))}
@@ -494,7 +494,7 @@ function BrowseControls({
   label: string;
   primaryLabel?: string;
   primaryOptions?: string[];
-  categoryOptions: string[];
+  categoryOptions?: string[];
   sourceOptions: SelectOption[];
   filters: BrowseFilters;
   setFilters: (filters: BrowseFilters) => void;
@@ -505,9 +505,10 @@ function BrowseControls({
 
   useEffect(() => {
     const validPrimary = new Set(primaryOptions || []);
-    const validCategories = new Set(categoryOptions);
+    const validCategories = new Set(categoryOptions || []);
     const primary = primaryOptions && filters.primary && !validPrimary.has(filters.primary) ? "" : filters.primary;
-    const category = filters.category && !validCategories.has(filters.category) ? "" : filters.category;
+    const category =
+      categoryOptions && filters.category && validCategories.has(filters.category) ? filters.category : "";
     if (primary !== filters.primary || category !== filters.category) {
       setFilters({ ...filters, primary, category });
     }
@@ -567,21 +568,23 @@ function BrowseControls({
         </label>
       ) : null}
 
-      <label className="field">
-        <span>Category</span>
-        <select
-          aria-label={`${label} category`}
-          value={filters.category}
-          onChange={(event) => update({ category: event.currentTarget.value })}
-        >
-          <option value="">All</option>
-          {categoryOptions.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      </label>
+      {categoryOptions ? (
+        <label className="field">
+          <span>Category</span>
+          <select
+            aria-label={`${label} category`}
+            value={filters.category}
+            onChange={(event) => update({ category: event.currentTarget.value })}
+          >
+            <option value="">All</option>
+            {categoryOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
     </form>
   );
 }
@@ -706,20 +709,18 @@ export default function App() {
     () => filterItems(items.records, { ...deferredItemFilters, sources: [] }),
     [deferredItemFilters, items.records]
   );
-  const itemTypeRecords = useMemo(
+  const itemKindRecords = useMemo(
     () => filterItems(items.records, { ...deferredItemFilters, primary: "" }),
     [deferredItemFilters, items.records]
   );
-  const itemCategoryRecords = useMemo(
-    () => filterItems(items.records, { ...deferredItemFilters, category: "" }),
-    [deferredItemFilters, items.records]
+  const itemKinds = useMemo(
+    () => uniqueSorted(itemKindRecords.flatMap((record) => record.itemKinds)),
+    [itemKindRecords]
   );
-  const itemTypes = useMemo(() => uniqueSorted(itemTypeRecords.map((record) => record.itemType)), [itemTypeRecords]);
   const itemSources = useMemo(
     () => sourceOptionsForRecords(itemSourceRecords, itemFilters.sources),
     [itemFilters.sources, itemSourceRecords]
   );
-  const itemCategories = useMemo(() => uniqueCategories(itemCategoryRecords), [itemCategoryRecords]);
 
   const activeState = activeTab === "spells" ? spells : activeTab === "creatures" ? creatures : items;
   const activeRecords =
@@ -768,11 +769,10 @@ export default function App() {
         ) : null}
         {activeTab === "items" ? (
           <BrowseControls
-            categoryOptions={itemCategories}
             filters={itemFilters}
             label="magic items"
-            primaryLabel="Type"
-            primaryOptions={itemTypes}
+            primaryLabel="Kind"
+            primaryOptions={itemKinds}
             setFilters={setItemFilters}
             sourceOptions={itemSources}
           />

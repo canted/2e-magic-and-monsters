@@ -35,6 +35,7 @@ export interface CreatureRecord extends BaseRecord {
 export interface ItemRecord extends BaseRecord {
   kind: "item";
   itemType: string;
+  itemKinds: string[];
 }
 
 export type CompendiumRecord = SpellRecord | CreatureRecord | ItemRecord;

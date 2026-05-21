@@ -66,7 +66,7 @@ export function filterItems(records: ItemRecord[], filters: BrowseFilters): Item
   return records.filter((record) => {
     if (!includesQuery(record, query)) return false;
     if (!includesAnySource(record.sources, filters.sources)) return false;
-    if (filters.primary && record.itemType !== filters.primary) return false;
+    if (filters.primary && !record.itemKinds.includes(filters.primary)) return false;
     if (filters.category && !record.categories.includes(filters.category)) return false;
     return true;
   });

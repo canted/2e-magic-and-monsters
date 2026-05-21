@@ -96,7 +96,14 @@ const items: ItemRecord[] = [
     title: "Cloak Clasp of Holding (Magic Item)",
     name: "Cloak Clasp of Holding",
     itemType: "Magic Cloak Clasp",
-    fields: { Type: "Magic Cloak Clasp", XP: "60 xp", Value: "600 gp", Source: "Dungeon Master Guide" },
+    itemKinds: ["Worn Gear & Clothing"],
+    fields: {
+      Type: "Magic Cloak Clasp",
+      Kind: "Worn Gear & Clothing",
+      XP: "60 xp",
+      Value: "600 gp",
+      Source: "Dungeon Master Guide"
+    },
     sources: ["DMG"],
     categories: ["Magic Items", "Magic Cloak Clasps"],
     bodyHtml: "<p>A silver clasp that holds on command.</p>",
@@ -109,7 +116,8 @@ const items: ItemRecord[] = [
     title: "Ring of Sparks (Magic Ring)",
     name: "Ring of Sparks",
     itemType: "Magic Ring",
-    fields: { Type: "Magic Ring", XP: "500 xp", Value: "2,500 gp", Source: "Encyclopedia Magica" },
+    itemKinds: ["Rings"],
+    fields: { Type: "Magic Ring", Kind: "Rings", XP: "500 xp", Value: "2,500 gp", Source: "Encyclopedia Magica" },
     sources: ["Encyclopedia Magica"],
     categories: ["Magic Items", "Magic Rings"],
     bodyHtml: "<p>A ring that crackles with sparks.</p>",
@@ -219,10 +227,9 @@ describe("App", () => {
     fireEvent.click(screen.getByText("Magic Items"));
     await screen.findByText("Cloak Clasp of Holding");
 
-    expect(screen.getByLabelText("magic items type")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Magic Cloak Clasp" })).toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: "Magic Ring" })).not.toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Magic Cloak Clasps" })).toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: "Magic Rings" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("magic items kind")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Worn Gear & Clothing" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Rings" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("magic items category")).not.toBeInTheDocument();
   });
 });
