@@ -140,6 +140,12 @@ describe("App", () => {
     fireEvent.click(screen.getByLabelText("Priest"));
     await waitFor(() => expect(screen.queryByText("Bless")).not.toBeInTheDocument());
     expect(screen.getByText("Magic Missile")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText("Wizard"));
+    await waitFor(() => expect(screen.getByText("Bless")).toBeInTheDocument());
+    expect(screen.queryByText("Magic Missile")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Priest")).toBeChecked();
+    expect(screen.getByLabelText("Wizard")).not.toBeChecked();
   });
 
   it("searches spell descriptions and opens accordion details", async () => {

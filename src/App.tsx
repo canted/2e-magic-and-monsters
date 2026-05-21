@@ -339,6 +339,13 @@ function SpellControls({
   const selectedSources = useMemo(() => selectedOptions(sourceOptions, filters.sources), [filters.sources, sourceOptions]);
 
   const update = (patch: Partial<SpellFilters>) => setFilters({ ...filters, ...patch });
+  const updateClass = (key: "wizard" | "priest", checked: boolean) => {
+    const next = { ...filters, [key]: checked };
+    if (!next.wizard && !next.priest) {
+      next[key === "wizard" ? "priest" : "wizard"] = true;
+    }
+    setFilters(next);
+  };
 
   return (
     <form className="filter-bar" role="search">
@@ -347,7 +354,7 @@ function SpellControls({
         <label>
           <input
             checked={filters.wizard}
-            onChange={(event) => update({ wizard: event.currentTarget.checked })}
+            onChange={(event) => updateClass("wizard", event.currentTarget.checked)}
             type="checkbox"
           />
           Wizard
@@ -355,7 +362,7 @@ function SpellControls({
         <label>
           <input
             checked={filters.priest}
-            onChange={(event) => update({ priest: event.currentTarget.checked })}
+            onChange={(event) => updateClass("priest", event.currentTarget.checked)}
             type="checkbox"
           />
           Priest
