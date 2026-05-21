@@ -15,6 +15,7 @@ const spells: SpellRecord[] = [
     spheres: [],
     components: { verbal: true, somatic: true, material: false },
     fields: { Range: "60 yds.", Duration: "Instantaneous", Source: "PHB" },
+    sources: ["PH"],
     categories: ["Wizard Spells"],
     bodyHtml: "<p>A missile of magical energy.</p>",
     bodyText: "a missile of magical energy",
@@ -31,6 +32,7 @@ const spells: SpellRecord[] = [
     spheres: [],
     components: { verbal: true, somatic: true, material: true },
     fields: { Range: "180 yds.", Duration: "Special", Source: "PHB" },
+    sources: ["PH"],
     categories: ["Wizard Spells"],
     bodyHtml: "<p>An arrow that burns with acid.</p>",
     bodyText: "an arrow that burns with acid",
@@ -47,10 +49,28 @@ const spells: SpellRecord[] = [
     spheres: ["All"],
     components: { verbal: true, somatic: true, material: true },
     fields: { Range: "60 yds.", Duration: "6 rds.", Source: "PHB" },
+    sources: ["PH"],
     categories: ["Priest Spells"],
     bodyHtml: "<p>A blessing for allies.</p>",
     bodyText: "a blessing for allies",
     searchText: "bless priest 1 conjuration all a blessing for allies"
+  },
+  {
+    id: "spell-4",
+    kind: "spell",
+    title: "Chill (Wizard Spell)",
+    name: "Chill",
+    spellClass: "Wizard",
+    level: "1",
+    schools: ["Evocation"],
+    spheres: [],
+    components: { verbal: true, somatic: true, material: false },
+    fields: { Range: "10 yds.", Duration: "Instantaneous", Source: "Dragon Magazine #229" },
+    sources: ["Dragon Magazine #229"],
+    categories: ["Wizard Spells"],
+    bodyHtml: "<p>A sharp cold cantrip.</p>",
+    bodyText: "a sharp cold cantrip",
+    searchText: "chill wizard 1 evocation dragon magazine #229 a sharp cold cantrip"
   }
 ];
 
@@ -61,6 +81,7 @@ const creatures: CreatureRecord[] = [
     title: "Aarakocra (Creature)",
     name: "Aarakocra",
     fields: { Source: "Monstrous Manual", "Armor Class": "7", "Hit Dice": "1+2" },
+    sources: ["MM"],
     categories: ["Creatures", "Monstrous Manual Creatures"],
     bodyHtml: "<p>Bird-men of high mountains.</p>",
     bodyText: "bird-men of high mountains",
@@ -75,7 +96,8 @@ const items: ItemRecord[] = [
     title: "Cloak Clasp of Holding (Magic Item)",
     name: "Cloak Clasp of Holding",
     itemType: "Magic Cloak Clasp",
-    fields: { Type: "Magic Cloak Clasp", XP: "60 xp", Value: "600 gp", Source: "Encyclopedia Magica" },
+    fields: { Type: "Magic Cloak Clasp", XP: "60 xp", Value: "600 gp", Source: "Dungeon Master Guide" },
+    sources: ["DMG"],
     categories: ["Magic Items", "Magic Cloak Clasps"],
     bodyHtml: "<p>A silver clasp that holds on command.</p>",
     bodyText: "a silver clasp that holds on command",
@@ -147,6 +169,17 @@ describe("App", () => {
     fireEvent.keyDown(taxonomy, { key: "ArrowDown" });
     fireEvent.click(within(await screen.findByRole("listbox")).getByText("Conjuration"));
     expect(screen.getByText("Acid Arrow")).toBeInTheDocument();
+  });
+
+  it("defaults source filters to core books and can add another source", async () => {
+    render(<App />);
+    await screen.findByText("Magic Missile");
+    expect(screen.queryByText("Chill")).not.toBeInTheDocument();
+
+    const sources = screen.getByLabelText("Spell sources");
+    fireEvent.keyDown(sources, { key: "ArrowDown" });
+    fireEvent.click(within(await screen.findByRole("listbox")).getByText("Dragon Magazine #229"));
+    expect(await screen.findByText("Chill")).toBeInTheDocument();
   });
 
   it("switches to monster and magic item tabs", async () => {

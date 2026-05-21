@@ -24,7 +24,7 @@
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
 }
 
 body {
@@ -45,7 +45,7 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto;
   min-height: 100%;
 }
 
@@ -107,13 +107,13 @@ button {
   align-items: end;
   display: grid;
   gap: 12px;
-  grid-template-columns: auto minmax(260px, 1fr) minmax(120px, 160px) minmax(220px, 300px) auto;
+  grid-template-columns: auto minmax(240px, 1fr) minmax(105px, 140px) minmax(210px, 270px) minmax(180px, 240px) auto;
   max-width: 100%;
   min-width: 0;
 }
 
 .browse-filter-bar {
-  grid-template-columns: minmax(260px, 1fr) minmax(150px, 240px) minmax(180px, 320px);
+  grid-template-columns: minmax(240px, 1fr) minmax(180px, 260px) minmax(150px, 220px) minmax(180px, 280px);
 }
 
 .field {
@@ -215,6 +215,8 @@ button {
 
 .taxonomy-picker {
   font-size: 0.95rem;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .taxonomy-picker .taxonomy-picker__control {
@@ -223,6 +225,7 @@ button {
   border-radius: 7px;
   box-shadow: none;
   min-height: 40px;
+  min-width: 0;
 }
 
 .taxonomy-picker .taxonomy-picker__control:hover,
@@ -234,6 +237,7 @@ button {
 .taxonomy-picker .taxonomy-picker__value-container {
   gap: 3px;
   padding: 3px 9px;
+  min-width: 0;
 }
 
 .taxonomy-picker .taxonomy-picker__placeholder,
@@ -247,6 +251,7 @@ button {
   background: var(--accent-soft);
   border: 1px solid #b7d4e6;
   border-radius: 999px;
+  max-width: 100%;
   overflow: hidden;
 }
 
@@ -254,7 +259,11 @@ button {
   color: var(--accent-strong);
   font-size: 0.8rem;
   font-weight: 800;
+  max-width: 170px;
+  overflow: hidden;
   padding: 4px 6px 4px 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .taxonomy-picker .taxonomy-picker__multi-value__remove {
@@ -310,11 +319,7 @@ button {
 }
 
 .result-scroll {
-  height: calc(100vh - 178px);
-  min-height: 360px;
-  overflow: auto;
-  padding-right: 4px;
-  scrollbar-gutter: stable;
+  min-height: 0;
 }
 
 .result-list {
@@ -564,6 +569,37 @@ button {
   padding: 26px;
 }
 
+.scroll-top {
+  align-items: center;
+  background: var(--accent);
+  border: 1px solid var(--accent-strong);
+  border-radius: 8px;
+  bottom: 18px;
+  box-shadow: var(--shadow);
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  height: 44px;
+  justify-content: center;
+  opacity: 1;
+  pointer-events: none;
+  position: fixed;
+  right: 18px;
+  transition: background 140ms ease;
+  visibility: hidden;
+  width: 44px;
+  z-index: 30;
+}
+
+.scroll-top.is-visible {
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.scroll-top:hover {
+  background: var(--accent-strong);
+}
+
 @media (max-width: 980px) {
   .topbar {
     align-items: stretch;
@@ -580,12 +616,9 @@ button {
   }
 
   .search-field,
-  .taxonomy-field {
+  .taxonomy-field,
+  .source-field {
     grid-column: 1 / -1;
-  }
-
-  .result-scroll {
-    height: calc(100vh - 250px);
   }
 }
 
@@ -616,7 +649,8 @@ button {
   }
 
   .search-field,
-  .taxonomy-field {
+  .taxonomy-field,
+  .source-field {
     grid-column: auto;
   }
 
@@ -638,10 +672,5 @@ button {
   .result-badges {
     justify-content: start;
     max-width: 100%;
-  }
-
-  .result-scroll {
-    height: calc(100vh - 380px);
-    min-height: 340px;
   }
 }

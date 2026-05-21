@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState, useDeferredValue } from "react";
-import { BookOpen, Box, ChevronDown, FlaskConical, Search, Shield } from "lucide-react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ArrowUp, BookOpen, Box, ChevronDown, Search, Shield } from "lucide-react";
+import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import Select, { type MultiValue } from "react-select";
 import { initialDataState, loadTabData } from "./data";
 import {
@@ -28,11 +28,14 @@ const TABS: Array<{ id: TabId; label: string; icon: typeof BookOpen }> = [
   { id: "items", label: "Magic Items", icon: Box }
 ];
 
+const CORE_SOURCE_DEFAULTS = ["PH", "DMG", "MM"];
+
 const INITIAL_SPELL_FILTERS: SpellFilters = {
   wizard: true,
   priest: true,
   search: "",
   level: "",
+  sources: CORE_SOURCE_DEFAULTS,
   taxonomy: [],
   verbal: false,
   somatic: false,
@@ -42,12 +45,54 @@ const INITIAL_SPELL_FILTERS: SpellFilters = {
 const INITIAL_BROWSE_FILTERS: BrowseFilters = {
   search: "",
   primary: "",
+  sources: CORE_SOURCE_DEFAULTS,
   category: ""
 };
 
-interface TaxonomyOption {
+interface SelectOption {
   label: string;
   value: string;
+}
+
+function sourceSortValue(value: string): [number, string] {
+  const coreIndex = CORE_SOURCE_DEFAULTS.indexOf(value);
+  return [coreIndex === -1 ? CORE_SOURCE_DEFAULTS.length : coreIndex, value];
+}
+
+function sourceOptionsForRecords(records: CompendiumRecord[]): SelectOption[] {
+  return uniqueSorted([...CORE_SOURCE_DEFAULTS, ...records.flatMap((record) => record.sources)]).sort((a, b) => {
+    const [rankA, valueA] = sourceSortValue(a);
+    const [rankB, valueB] = sourceSortValue(b);
+    if (rankA !== rankB) return rankA - rankB;
+    return valueA.localeCompare(valueB, undefined, { numeric: true, sensitivity: "base" });
+  }).map((source) => ({ label: source, value: source }));
+}
+
+function selectedOptions(options: SelectOption[], selectedValues: string[]): SelectOption[] {
+  const selected = new Set(selectedValues);
+  return options.filter((option) => selected.has(option.value));
+}
+
+function spellLevelSortValue(level: string): [number, number | string] {
+  const lowered = level.toLocaleLowerCase();
+  if (lowered === "cantrip") return [0, 0];
+  if (lowered === "orison") return [0, 1];
+  if (/^\d+$/.test(level)) return [1, Number(level)];
+  if (lowered === "quest spell") return [2, 0];
+  if (lowered === "special") return [3, 0];
+  if (lowered === "true dweomer") return [4, 0];
+  return [5, lowered];
+}
+
+function spellLevelOptions(records: SpellRecord[]): string[] {
+  return uniqueSorted(records.map((record) => record.level)).sort((a, b) => {
+    const [groupA, valueA] = spellLevelSortValue(a);
+    const [groupB, valueB] = spellLevelSortValue(b);
+    if (groupA !== groupB) return groupA - groupB;
+    return typeof valueA === "number" && typeof valueB === "number"
+      ? valueA - valueB
+      : String(valueA).localeCompare(String(valueB), undefined, { numeric: true, sensitivity: "base" });
+  });
 }
 
 function fieldEntries(fields: Record<string, string>): Array<[string, string]> {
@@ -167,19 +212,6 @@ function VirtualResults({
   expandedId: string | null;
   setExpandedId: (id: string | null) => void;
 }) {
-  const parentRef = useRef<HTMLDivElement | null>(null);
-  const virtualizer = useVirtualizer({
-    count: records.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 72,
-    initialRect: { height: 640, width: 1024 },
-    overscan: 8
-  });
-
-  useEffect(() => {
-    virtualizer.measure();
-  }, [expandedId, records.length, virtualizer]);
-
   if (records.length === 0) {
     return <div className="empty-state">No matching records.</div>;
   }
@@ -202,6 +234,51 @@ function VirtualResults({
     );
   }
 
+  return <WindowedResults expandedId={expandedId} records={records} setExpandedId={setExpandedId} />;
+}
+
+function WindowedResults({
+  records,
+  expandedId,
+  setExpandedId
+}: {
+  records: CompendiumRecord[];
+  expandedId: string | null;
+  setExpandedId: (id: string | null) => void;
+}) {
+  const parentRef = useRef<HTMLDivElement | null>(null);
+  const [scrollMargin, setScrollMargin] = useState(0);
+  const virtualizer = useWindowVirtualizer({
+    count: records.length,
+    estimateSize: () => 72,
+    initialRect: { height: 640, width: 1024 },
+    overscan: 8,
+    scrollMargin
+  });
+
+  useLayoutEffect(() => {
+    const node = parentRef.current;
+    if (!node) return;
+    const nextScrollMargin = node.getBoundingClientRect().top + window.scrollY;
+    setScrollMargin((current) => (Math.abs(current - nextScrollMargin) < 1 ? current : nextScrollMargin));
+  });
+
+  useEffect(() => {
+    const updateScrollMargin = () => {
+      const node = parentRef.current;
+      if (!node) return;
+      const nextScrollMargin = node.getBoundingClientRect().top + window.scrollY;
+      setScrollMargin((current) => (Math.abs(current - nextScrollMargin) < 1 ? current : nextScrollMargin));
+    };
+    updateScrollMargin();
+    window.addEventListener("resize", updateScrollMargin);
+    return () => window.removeEventListener("resize", updateScrollMargin);
+  }, []);
+
+  useEffect(() => {
+    virtualizer.measure();
+  }, [expandedId, records.length, scrollMargin, virtualizer]);
+
   return (
     <div className="result-scroll" ref={parentRef} data-testid="result-scroll">
       <div className="result-spacer" style={{ height: `${virtualizer.getTotalSize()}px` }}>
@@ -214,7 +291,7 @@ function VirtualResults({
               data-index={virtualRow.index}
               key={record.id}
               ref={virtualizer.measureElement}
-              style={{ transform: `translateY(${virtualRow.start}px)` }}
+              style={{ transform: `translateY(${virtualRow.start - scrollMargin}px)` }}
             >
               <ResultRow
                 record={record}
@@ -238,9 +315,10 @@ function SpellControls({
   setFilters: (filters: SpellFilters) => void;
   records: SpellRecord[];
 }) {
-  const levels = useMemo(() => uniqueSorted(records.map((record) => record.level)), [records]);
+  const levels = useMemo(() => spellLevelOptions(records), [records]);
   const schools = useMemo(() => uniqueSorted(records.flatMap((record) => record.schools)), [records]);
   const spheres = useMemo(() => uniqueSorted(records.flatMap((record) => record.spheres)), [records]);
+  const sourceOptions = useMemo(() => sourceOptionsForRecords(records), [records]);
   const taxonomyOptions = useMemo(
     () => [
       {
@@ -258,6 +336,7 @@ function SpellControls({
     const selected = new Set(filters.taxonomy);
     return taxonomyOptions.flatMap((group) => group.options).filter((option) => selected.has(option.value));
   }, [filters.taxonomy, taxonomyOptions]);
+  const selectedSources = useMemo(() => selectedOptions(sourceOptions, filters.sources), [filters.sources, sourceOptions]);
 
   const update = (patch: Partial<SpellFilters>) => setFilters({ ...filters, ...patch });
 
@@ -310,7 +389,7 @@ function SpellControls({
 
       <label className="field taxonomy-field" htmlFor="taxonomy-select">
         <span>Schools / Spheres</span>
-        <Select<TaxonomyOption, true>
+        <Select<SelectOption, true>
           aria-label="Schools and spheres"
           className="taxonomy-picker"
           classNamePrefix="taxonomy-picker"
@@ -318,7 +397,7 @@ function SpellControls({
           inputId="taxonomy-select"
           isClearable
           isMulti
-          onChange={(value: MultiValue<TaxonomyOption>) =>
+          onChange={(value: MultiValue<SelectOption>) =>
             update({
               taxonomy: value.map((option) => option.value)
             })
@@ -326,6 +405,27 @@ function SpellControls({
           options={taxonomyOptions}
           placeholder="All schools and spheres"
           value={selectedTaxonomy}
+        />
+      </label>
+
+      <label className="field source-field" htmlFor="spell-source-select">
+        <span>Source</span>
+        <Select<SelectOption, true>
+          aria-label="Spell sources"
+          className="taxonomy-picker"
+          classNamePrefix="taxonomy-picker"
+          closeMenuOnSelect={false}
+          inputId="spell-source-select"
+          isClearable
+          isMulti
+          onChange={(value: MultiValue<SelectOption>) =>
+            update({
+              sources: value.map((option) => option.value)
+            })
+          }
+          options={sourceOptions}
+          placeholder="All sources"
+          value={selectedSources}
         />
       </label>
 
@@ -365,17 +465,21 @@ function BrowseControls({
   primaryLabel,
   primaryOptions,
   categoryOptions,
+  sourceOptions,
   filters,
   setFilters
 }: {
   label: string;
-  primaryLabel: string;
-  primaryOptions: string[];
+  primaryLabel?: string;
+  primaryOptions?: string[];
   categoryOptions: string[];
+  sourceOptions: SelectOption[];
   filters: BrowseFilters;
   setFilters: (filters: BrowseFilters) => void;
 }) {
   const update = (patch: Partial<BrowseFilters>) => setFilters({ ...filters, ...patch });
+  const selectedSources = useMemo(() => selectedOptions(sourceOptions, filters.sources), [filters.sources, sourceOptions]);
+  const sourceInputId = `${label.replace(/\s+/g, "-")}-source-select`;
   return (
     <form className="filter-bar browse-filter-bar" role="search">
       <label className="field search-field">
@@ -391,17 +495,40 @@ function BrowseControls({
         </span>
       </label>
 
-      <label className="field">
-        <span>{primaryLabel}</span>
-        <select value={filters.primary} onChange={(event) => update({ primary: event.currentTarget.value })}>
-          <option value="">All</option>
-          {primaryOptions.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+      <label className="field source-field" htmlFor={sourceInputId}>
+        <span>Source</span>
+        <Select<SelectOption, true>
+          aria-label={`${label} sources`}
+          className="taxonomy-picker"
+          classNamePrefix="taxonomy-picker"
+          closeMenuOnSelect={false}
+          inputId={sourceInputId}
+          isClearable
+          isMulti
+          onChange={(value: MultiValue<SelectOption>) =>
+            update({
+              sources: value.map((option) => option.value)
+            })
+          }
+          options={sourceOptions}
+          placeholder="All sources"
+          value={selectedSources}
+        />
       </label>
+
+      {primaryLabel && primaryOptions ? (
+        <label className="field">
+          <span>{primaryLabel}</span>
+          <select value={filters.primary} onChange={(event) => update({ primary: event.currentTarget.value })}>
+            <option value="">All</option>
+            {primaryOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
 
       <label className="field">
         <span>Category</span>
@@ -446,9 +573,31 @@ export default function App() {
   const [creatureFilters, setCreatureFilters] = useState<BrowseFilters>(INITIAL_BROWSE_FILTERS);
   const [itemFilters, setItemFilters] = useState<BrowseFilters>(INITIAL_BROWSE_FILTERS);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const controlsRef = useRef<HTMLElement | null>(null);
+  const scrollTopRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     setExpandedId(null);
+  }, [activeTab]);
+
+  useEffect(() => {
+    const updateScrollTopVisibility = () => {
+      const node = controlsRef.current;
+      scrollTopRef.current?.classList.toggle("is-visible", Boolean(node && node.getBoundingClientRect().bottom < 0));
+    };
+    const scrollOptions = { capture: true, passive: true };
+    updateScrollTopVisibility();
+    window.addEventListener("scroll", updateScrollTopVisibility, scrollOptions);
+    document.addEventListener("scroll", updateScrollTopVisibility, scrollOptions);
+    window.addEventListener("resize", updateScrollTopVisibility);
+    const pollId = window.setInterval(updateScrollTopVisibility, 250);
+    return () => {
+      window.removeEventListener("scroll", updateScrollTopVisibility, scrollOptions);
+      document.removeEventListener("scroll", updateScrollTopVisibility, scrollOptions);
+      window.removeEventListener("resize", updateScrollTopVisibility);
+      window.clearInterval(pollId);
+      scrollTopRef.current?.classList.remove("is-visible");
+    };
   }, [activeTab]);
 
   useEffect(() => {
@@ -498,9 +647,10 @@ export default function App() {
     [deferredItemFilters, items.records]
   );
 
-  const creatureSources = useMemo(() => uniqueSorted(creatures.records.map((record) => record.fields.Source)), [creatures.records]);
+  const creatureSources = useMemo(() => sourceOptionsForRecords(creatures.records), [creatures.records]);
   const creatureCategories = useMemo(() => uniqueCategories(creatures.records), [creatures.records]);
   const itemTypes = useMemo(() => uniqueSorted(items.records.map((record) => record.itemType)), [items.records]);
+  const itemSources = useMemo(() => sourceOptionsForRecords(items.records), [items.records]);
   const itemCategories = useMemo(() => uniqueCategories(items.records), [items.records]);
 
   const activeState = activeTab === "spells" ? spells : activeTab === "creatures" ? creatures : items;
@@ -535,7 +685,7 @@ export default function App() {
         />
       </header>
 
-      <section className="controls-region">
+      <section className="controls-region" ref={controlsRef}>
         {activeTab === "spells" ? (
           <SpellControls filters={spellFilters} records={spells.records} setFilters={setSpellFilters} />
         ) : null}
@@ -544,9 +694,8 @@ export default function App() {
             categoryOptions={creatureCategories}
             filters={creatureFilters}
             label="monsters"
-            primaryLabel="Source"
-            primaryOptions={creatureSources}
             setFilters={setCreatureFilters}
+            sourceOptions={creatureSources}
           />
         ) : null}
         {activeTab === "items" ? (
@@ -557,6 +706,7 @@ export default function App() {
             primaryLabel="Type"
             primaryOptions={itemTypes}
             setFilters={setItemFilters}
+            sourceOptions={itemSources}
           />
         ) : null}
       </section>
@@ -567,6 +717,17 @@ export default function App() {
           <VirtualResults expandedId={expandedId} records={activeRecords} setExpandedId={setExpandedId} />
         ) : null}
       </section>
+
+      <button
+        aria-label="Scroll to filters"
+        className="scroll-top"
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        ref={scrollTopRef}
+        title="Scroll to filters"
+        type="button"
+      >
+        <ArrowUp size={19} />
+      </button>
     </main>
   );
 }

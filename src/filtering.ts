@@ -8,6 +8,12 @@ function includesQuery(record: { searchText: string }, query: string): boolean {
   return !query || record.searchText.includes(query);
 }
 
+function includesAnySource(recordSources: string[], selectedSources: string[]): boolean {
+  if (selectedSources.length === 0) return true;
+  const sources = new Set(recordSources);
+  return selectedSources.some((source) => sources.has(source));
+}
+
 export function taxonomyValue(kind: "school" | "sphere", value: string): string {
   return `${kind}:${value}`;
 }
@@ -25,6 +31,7 @@ export function filterSpells(records: SpellRecord[], filters: SpellFilters): Spe
     }
 
     if (!includesQuery(record, query)) return false;
+    if (!includesAnySource(record.sources, filters.sources)) return false;
     if (filters.level && record.level !== filters.level) return false;
     if (filters.verbal && !record.components.verbal) return false;
     if (filters.somatic && !record.components.somatic) return false;
@@ -48,7 +55,7 @@ export function filterCreatures(records: CreatureRecord[], filters: BrowseFilter
   const query = normalizeQuery(filters.search);
   return records.filter((record) => {
     if (!includesQuery(record, query)) return false;
-    if (filters.primary && record.fields.Source !== filters.primary) return false;
+    if (!includesAnySource(record.sources, filters.sources)) return false;
     if (filters.category && !record.categories.includes(filters.category)) return false;
     return true;
   });
@@ -58,6 +65,7 @@ export function filterItems(records: ItemRecord[], filters: BrowseFilters): Item
   const query = normalizeQuery(filters.search);
   return records.filter((record) => {
     if (!includesQuery(record, query)) return false;
+    if (!includesAnySource(record.sources, filters.sources)) return false;
     if (filters.primary && record.itemType !== filters.primary) return false;
     if (filters.category && !record.categories.includes(filters.category)) return false;
     return true;

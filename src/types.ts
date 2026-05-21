@@ -8,6 +8,7 @@ export interface BaseRecord {
   title: string;
   name: string;
   fields: FieldMap;
+  sources: string[];
   categories: string[];
   bodyHtml: string;
   bodyText: string;
@@ -43,6 +44,7 @@ export interface SpellFilters {
   priest: boolean;
   search: string;
   level: string;
+  sources: string[];
   taxonomy: string[];
   verbal: boolean;
   somatic: boolean;
@@ -52,6 +54,7 @@ export interface SpellFilters {
 export interface BrowseFilters {
   search: string;
   primary: string;
+  sources: string[];
   category: string;
 }
 
